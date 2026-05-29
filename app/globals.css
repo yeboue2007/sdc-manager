@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+:root {
+  --sdc-orange: #F97316;
+  --sdc-gold: #F59E0B;
+  --sdc-green: #16A34A;
+  --sdc-dark: #0F172A;
+  --sdc-darker: #020617;
+}
+
+body {
+  background-color: #0F172A;
+  color: #F8FAFC;
+  font-family: 'Inter', sans-serif;
+}
+
+.sdc-card {
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  border-radius: 12px;
+}
+
+.sdc-card-hover:hover {
+  border-color: rgba(249, 115, 22, 0.5);
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+.sdc-btn-primary {
+  background: linear-gradient(135deg, #F97316, #EA580C);
+  color: white;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.sdc-btn-primary:hover {
+  background: linear-gradient(135deg, #EA580C, #C2410C);
+  transform: translateY(-1px);
+}
+
+.sdc-input {
+  background: #1E293B;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #F8FAFC;
+  padding: 8px 12px;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.sdc-input:focus {
+  border-color: #F97316;
+  outline: none;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  color: #94A3B8;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.sidebar-link:hover, .sidebar-link.active {
+  background: rgba(249, 115, 22, 0.15);
+  color: #F97316;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+.alert-badge {
+  background: rgba(239, 68, 68, 0.2);
+  color: #FCA5A5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.success-badge {
+  background: rgba(22, 163, 74, 0.2);
+  color: #86EFAC;
+  border: 1px solid rgba(22, 163, 74, 0.3);
+}
+
+.warning-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: #FCD34D;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: #1E293B; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #F97316; border-radius: 4px; }
