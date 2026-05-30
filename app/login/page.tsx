@@ -125,7 +125,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-slate-600 mt-6">
-          SDC Manager v1.0 · Espace Pavageau, Ebimpé · Abidjan
+          SDC Manager v1.0 · Terrain du village, Ebimpé · Abidjan
         </p>
       </div>
     </div>
