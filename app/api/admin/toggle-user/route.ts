@@ -1,0 +1,25 @@
+import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(req: NextRequest) {
+  try {
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceKey) return NextResponse.json({ error: 'Service key non configurée' }, { status: 500 })
+
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceKey,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    const { user_id, active } = await req.json()
+    await admin.from('user_profiles').update({ active }).eq('id', user_id)
+    await admin.auth.admin.updateUserById(user_id, {
+      ban_duration: active ? 'none' : '87600h'
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}

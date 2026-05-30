@@ -119,8 +119,13 @@ export default function SettingsPage() {
 
   async function toggleUserActive(id: string, active: boolean, name: string) {
     if (!confirm(`${active ? 'Désactiver' : 'Réactiver'} le compte de ${name} ?`)) return
-    const { error } = await supabase.from('user_profiles').update({ active: !active }).eq('id', id)
-    if (error) flash(setUserMsg, '❌ Erreur')
+    const res = await fetch('/api/admin/toggle-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: id, active: !active })
+    })
+    const data = await res.json()
+    if (data.error) flash(setUserMsg, '❌ Erreur: ' + data.error)
     else { flash(setUserMsg, `✅ Compte ${!active ? 'réactivé' : 'désactivé'}`); loadAll() }
   }
 
