@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCurrentProfile } from '@/lib/auth'
 import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
@@ -15,23 +16,40 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (error) {
+    if (authError) {
       setError('Email ou mot de passe incorrect')
       setLoading(false)
       return
     }
 
     if (data.session) {
-      // Redirection directe sans router Next.js
+      // Vérifier que le compte a un profil valide et actif
+      const profile = await getCurrentProfile()
+
+      if (!profile) {
+        await supabase.auth.signOut()
+        setError('Compte non configuré. Contactez l\'administrateur.')
+        setLoading(false)
+        return
+      }
+
+      if (!profile.active) {
+        await supabase.auth.signOut()
+        setError('Ce compte est désactivé. Contactez l\'administrateur.')
+        setLoading(false)
+        return
+      }
+
+      // Redirection selon le rôle
       window.location.href = '/dashboard'
     }
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(135deg, #020617 0%, #0F172A 50%, #020617 100%)' }}>
+      style={{ background: 'linear-gradient(135deg,#020617 0%,#0F172A 50%,#020617 100%)' }}>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-5"
@@ -41,12 +59,9 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-md relative">
-
         <div className="text-center mb-8">
           <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-black text-2xl mx-auto mb-4 shadow-2xl"
-            style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>
-            SDC
-          </div>
+            style={{ background: 'linear-gradient(135deg,#F97316,#EA580C)' }}>SDC</div>
           <h1 className="text-3xl font-black text-white">SDC Manager</h1>
           <p className="text-sm mt-1" style={{ color: '#F97316' }}>Son Du Ciel Events</p>
           <div className="mt-3 inline-block text-xs text-slate-400 px-4 py-1.5 rounded-full"
@@ -57,13 +72,12 @@ export default function LoginPage() {
 
         <div className="rounded-2xl p-8 shadow-2xl"
           style={{ background: 'rgba(30,41,59,0.8)', border: '1px solid rgba(249,115,22,0.2)', backdropFilter: 'blur(20px)' }}>
-
           <h2 className="text-lg font-bold text-white mb-6 text-center">Connexion</h2>
 
           {error && (
             <div className="mb-4 flex items-center gap-2 p-3 rounded-lg text-red-400 text-sm"
               style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-              <AlertCircle size={16} />
+              <AlertCircle size={16} className="flex-shrink-0" />
               {error}
             </div>
           )}
@@ -71,62 +85,37 @@ export default function LoginPage() {
           <div className="space-y-4">
             <div>
               <label className="text-xs text-slate-400 block mb-1.5 font-medium">Adresse email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                placeholder="votre@email.com"
-                className="sdc-input text-sm"
-                autoComplete="email"
-              />
+                placeholder="votre@email.com" className="sdc-input text-sm" autoComplete="email" />
             </div>
-
             <div>
               <label className="text-xs text-slate-400 block mb-1.5 font-medium">Mot de passe</label>
               <div className="relative">
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  value={password}
+                <input type={showPwd ? 'text' : 'password'} value={password}
                   onChange={e => setPassword(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                  placeholder="••••••••••"
-                  className="sdc-input text-sm pr-10"
-                  autoComplete="current-password"
-                />
+                  placeholder="••••••••" className="sdc-input text-sm pr-10" autoComplete="current-password" />
                 <button type="button" onClick={() => setShowPwd(!showPwd)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
                   {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
-
-            <button
-              onClick={handleLogin}
-              disabled={loading || !email || !password}
-              className="w-full sdc-btn-primary flex items-center justify-center gap-2 py-3 text-sm font-bold mt-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            <button onClick={handleLogin} disabled={loading || !email || !password}
+              className="w-full sdc-btn-primary flex items-center justify-center gap-2 py-3 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">
               {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Connexion en cours...
-                </>
+                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Connexion...</>
               ) : (
-                <>
-                  <LogIn size={16} />
-                  Se connecter
-                </>
+                <><LogIn size={16} />Se connecter</>
               )}
             </button>
           </div>
 
-          <div className="mt-6 pt-4 border-t text-center" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-            <p className="text-xs text-slate-500">Accès réservé à l'équipe Son Du Ciel Events</p>
-          </div>
+          <p className="text-center text-xs text-slate-500 mt-6 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+            Accès réservé à l&apos;équipe Son Du Ciel Events
+          </p>
         </div>
-
-        <p className="text-center text-xs text-slate-600 mt-6">
-          SDC Manager v1.0 · Terrain du village, Ebimpé · Abidjan
-        </p>
       </div>
     </div>
   )

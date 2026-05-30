@@ -2,7 +2,6 @@ import { supabase } from './supabase'
 
 export type UserRole = 'admin' | 'comptable' | 'responsable_stock' | 'responsable_stands' | 'rh' | 'superviseur' | 'billetterie'
 
-// Pages accessibles par rôle
 export const ROLE_ACCESS: Record<UserRole, string[]> = {
   admin:              ['dashboard','caisses','stock','stands','personnel','depenses','billetterie','rapports','settings','alertes'],
   comptable:          ['dashboard','caisses','depenses','rapports','alertes'],
@@ -23,20 +22,35 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   billetterie:        'Billetterie',
 }
 
-export async function getCurrentUserRole(): Promise<{ role: UserRole | null; userId: string | null; fullName: string | null }> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { role: null, userId: null, fullName: null }
+export interface UserProfile {
+  id: string
+  email: string
+  full_name: string
+  role: UserRole
+  phone: string | null
+  active: boolean
+}
 
-  const { data } = await supabase
+// Charge le profil complet depuis user_profiles — source de vérité unique
+export async function getCurrentProfile(): Promise<UserProfile | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data, error } = await supabase
     .from('user_profiles')
-    .select('role, full_name')
+    .select('id, full_name, role, phone, active')
     .eq('id', user.id)
     .single()
 
+  if (error || !data) return null
+
   return {
-    role: (data?.role as UserRole) || null,
-    userId: user.id,
-    fullName: data?.full_name || null
+    id: user.id,
+    email: user.email || '',
+    full_name: data.full_name,
+    role: data.role as UserRole,
+    phone: data.phone,
+    active: data.active,
   }
 }
 

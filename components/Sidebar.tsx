@@ -3,48 +3,70 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getCurrentUserRole, ROLE_ACCESS, ROLE_LABELS, UserRole } from '@/lib/auth'
+import { getCurrentProfile, ROLE_ACCESS, ROLE_LABELS, UserProfile, UserRole } from '@/lib/auth'
 import {
   LayoutDashboard, CreditCard, Package, UtensilsCrossed,
   Users, Receipt, BarChart3, Ticket, Bell, Menu, X,
-  LogOut, Settings, ShieldAlert
+  LogOut, Settings, ShieldAlert, Loader2
 } from 'lucide-react'
 
 const ALL_NAV = [
-  { href: '/dashboard',   icon: LayoutDashboard,  label: 'Tableau de bord',       page: 'dashboard' },
-  { href: '/caisses',     icon: CreditCard,        label: 'Caisses & Encaissements', page: 'caisses' },
-  { href: '/stock',       icon: Package,           label: 'Stock Boissons',        page: 'stock' },
-  { href: '/stands',      icon: UtensilsCrossed,   label: 'Stands Nourriture',     page: 'stands' },
-  { href: '/personnel',   icon: Users,             label: 'Personnel & Paie',      page: 'personnel' },
-  { href: '/depenses',    icon: Receipt,           label: 'Dépenses',              page: 'depenses' },
-  { href: '/billetterie', icon: Ticket,            label: 'Billetterie & Accès',   page: 'billetterie' },
-  { href: '/rapports',    icon: BarChart3,         label: 'Rapports & Exports',    page: 'rapports' },
+  { href: '/dashboard',   icon: LayoutDashboard, label: 'Tableau de bord',      page: 'dashboard' },
+  { href: '/caisses',     icon: CreditCard,       label: 'Caisses & Encaissements', page: 'caisses' },
+  { href: '/stock',       icon: Package,          label: 'Stock Boissons',       page: 'stock' },
+  { href: '/stands',      icon: UtensilsCrossed,  label: 'Stands Nourriture',    page: 'stands' },
+  { href: '/personnel',   icon: Users,            label: 'Personnel & Paie',     page: 'personnel' },
+  { href: '/depenses',    icon: Receipt,          label: 'Dépenses',             page: 'depenses' },
+  { href: '/billetterie', icon: Ticket,           label: 'Billetterie & Accès',  page: 'billetterie' },
+  { href: '/rapports',    icon: BarChart3,        label: 'Rapports & Exports',   page: 'rapports' },
 ]
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false)
-  const [role, setRole] = useState<UserRole | null>(null)
-  const [fullName, setFullName] = useState('')
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
   const pathname = usePathname()
   const router = useRouter()
 
   useEffect(() => {
-    getCurrentUserRole().then(({ role, fullName }) => {
-      setRole(role)
-      setFullName(fullName || '')
+    // Charger le profil dès le montage
+    loadProfile()
+
+    // Écouter les changements de session
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_OUT') {
+        setProfile(null)
+        router.push('/login')
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        loadProfile()
+      }
     })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  const allowedPages = role ? ROLE_ACCESS[role] : []
-  const visibleNav = ALL_NAV.filter(n => allowedPages.includes(n.page))
+  async function loadProfile() {
+    setLoading(true)
+    const p = await getCurrentProfile()
+    setProfile(p)
+    setLoading(false)
+    // Si pas de profil valide → déconnexion
+    if (!p) {
+      router.push('/login')
+    }
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
-  const initial = fullName?.charAt(0)?.toUpperCase() || 'U'
-  const roleLabel = role ? ROLE_LABELS[role] : '...'
+  const role = profile?.role ?? null
+  const allowedPages = role ? ROLE_ACCESS[role] : []
+  const visibleNav = ALL_NAV.filter(n => allowedPages.includes(n.page))
+  const initial = profile?.full_name?.charAt(0)?.toUpperCase() ?? '?'
+  const roleLabel = role ? ROLE_LABELS[role] : ''
+  const isAdmin = role === 'admin'
 
   return (
     <>
@@ -54,9 +76,12 @@ export default function Sidebar() {
         {open ? <X size={20} color="white" /> : <Menu size={20} color="white" />}
       </button>
 
-      {open && <div className="lg:hidden fixed inset-0 bg-black/60 z-40" onClick={() => setOpen(false)} />}
+      {open && (
+        <div className="lg:hidden fixed inset-0 bg-black/60 z-40" onClick={() => setOpen(false)} />
+      )}
 
-      <aside className={`fixed top-0 left-0 h-full w-64 z-40 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+      <aside
+        className={`fixed top-0 left-0 h-full w-64 z-40 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
         style={{ background: '#020617', borderRight: '1px solid rgba(249,115,22,0.15)' }}>
 
         {/* Logo */}
@@ -75,51 +100,66 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Profil utilisateur */}
+        {/* Profil */}
         <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center font-black text-white text-sm flex-shrink-0"
-              style={{ background: role === 'admin' ? 'linear-gradient(135deg,#F97316,#EA580C)' : '#334155' }}>
-              {initial}
+          {loading ? (
+            <div className="flex items-center gap-2 text-slate-500 text-xs">
+              <Loader2 size={14} className="animate-spin" /> Chargement...
             </div>
-            <div className="min-w-0">
-              <div className="text-white text-xs font-bold truncate">{fullName || 'Chargement...'}</div>
-              <div className="text-xs flex items-center gap-1" style={{ color: role === 'admin' ? '#F97316' : '#64748B' }}>
-                {role === 'admin' && <ShieldAlert size={10} />}
-                {roleLabel}
+          ) : profile ? (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center font-black text-white text-sm flex-shrink-0"
+                style={{ background: isAdmin ? 'linear-gradient(135deg,#F97316,#EA580C)' : '#1E293B', border: isAdmin ? 'none' : '1px solid #334155' }}>
+                {initial}
+              </div>
+              <div className="min-w-0">
+                <div className="text-white text-xs font-bold truncate">{profile.full_name}</div>
+                <div className="flex items-center gap-1 mt-0.5">
+                  {isAdmin && <ShieldAlert size={10} style={{ color: '#F97316' }} />}
+                  <span className="text-xs font-medium" style={{ color: isAdmin ? '#F97316' : '#64748B' }}>
+                    {roleLabel}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
-        {/* Navigation filtrée par rôle */}
+        {/* Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto scrollbar-thin">
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-3 px-2">Navigation</div>
-          {visibleNav.map(({ href, icon: Icon, label }) => (
-            <Link key={href} href={href} onClick={() => setOpen(false)}
-              className={`sidebar-link mb-1 ${pathname.startsWith(href) ? 'active' : ''}`}>
-              <Icon size={17} />
-              <span className="text-sm">{label}</span>
-            </Link>
-          ))}
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={20} className="animate-spin text-slate-600" />
+            </div>
+          ) : (
+            visibleNav.map(({ href, icon: Icon, label }) => (
+              <Link key={href} href={href} onClick={() => setOpen(false)}
+                className={`sidebar-link mb-1 ${pathname.startsWith(href) ? 'active' : ''}`}>
+                <Icon size={17} />
+                <span className="text-sm">{label}</span>
+              </Link>
+            ))
+          )}
         </nav>
 
         {/* Footer */}
         <div className="p-4 border-t" style={{ borderColor: 'rgba(249,115,22,0.15)' }}>
           {allowedPages.includes('alertes') && (
-            <Link href="/alertes" className="sidebar-link mb-1">
+            <Link href="/alertes" onClick={() => setOpen(false)} className="sidebar-link mb-1">
               <Bell size={17} />
               <span className="text-sm">Alertes</span>
             </Link>
           )}
-          {role === 'admin' && (
-            <Link href="/settings" className="sidebar-link mb-1">
+          {isAdmin && (
+            <Link href="/settings" onClick={() => setOpen(false)} className="sidebar-link mb-1">
               <Settings size={17} />
               <span className="text-sm">Paramètres</span>
             </Link>
           )}
           <button onClick={handleLogout}
-            className="sidebar-link w-full mt-1" style={{ color: '#F87171' }}>
+            className="sidebar-link w-full mt-1"
+            style={{ color: '#F87171' }}>
             <LogOut size={17} />
             <span className="text-sm">Déconnexion</span>
           </button>

@@ -1,28 +1,31 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Bell } from 'lucide-react'
-import { getCurrentUserRole, ROLE_LABELS, UserRole } from '@/lib/auth'
+import { getCurrentProfile, ROLE_LABELS, UserRole } from '@/lib/auth'
 
 export default function TopBar({ title }: { title: string }) {
   const [time, setTime] = useState('')
-  const [initial, setInitial] = useState('A')
+  const [initial, setInitial] = useState('')
   const [role, setRole] = useState<UserRole | null>(null)
+  const [roleLabel, setRoleLabel] = useState('')
 
   useEffect(() => {
-    const update = () => {
-      const now = new Date()
-      setTime(now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }))
-    }
+    const update = () => setTime(new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }))
     update()
     const t = setInterval(update, 1000)
 
-    getCurrentUserRole().then(({ role, fullName }) => {
-      setRole(role)
-      setInitial(fullName?.charAt(0)?.toUpperCase() || 'U')
+    getCurrentProfile().then(p => {
+      if (p) {
+        setInitial(p.full_name?.charAt(0)?.toUpperCase() || '?')
+        setRole(p.role)
+        setRoleLabel(ROLE_LABELS[p.role] || p.role)
+      }
     })
 
     return () => clearInterval(t)
   }, [])
+
+  const isAdmin = role === 'admin'
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-4"
@@ -38,12 +41,12 @@ export default function TopBar({ title }: { title: string }) {
         </button>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm text-white"
-            style={{ background: role === 'admin' ? 'linear-gradient(135deg,#F97316,#EA580C)' : '#334155' }}>
-            {initial}
+            style={{ background: isAdmin ? 'linear-gradient(135deg,#F97316,#EA580C)' : '#1E293B', border: isAdmin ? 'none' : '1px solid #334155' }}>
+            {initial || '?'}
           </div>
-          {role && (
-            <span className="text-xs hidden sm:block" style={{ color: role === 'admin' ? '#F97316' : '#64748B' }}>
-              {ROLE_LABELS[role]}
+          {roleLabel && (
+            <span className="text-xs hidden sm:block" style={{ color: isAdmin ? '#F97316' : '#64748B' }}>
+              {roleLabel}
             </span>
           )}
         </div>
