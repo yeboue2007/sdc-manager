@@ -16,3 +16,4 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   superviseur: 'Superviseur Terrain',
   billetterie: 'Billetterie',
 }
+// auto-confirm enabled Sat May 30 16:46:12 UTC 2026
