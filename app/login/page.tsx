@@ -1,11 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
@@ -13,14 +11,21 @@ export default function LoginPage() {
   const [error, setError] = useState('')
 
   async function handleLogin() {
+    if (!email || !password) return
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+
     if (error) {
       setError('Email ou mot de passe incorrect')
       setLoading(false)
-    } else {
-      router.push('/dashboard')
+      return
+    }
+
+    if (data.session) {
+      // Redirection directe sans router Next.js
+      window.location.href = '/dashboard'
     }
   }
 
@@ -28,7 +33,6 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4"
       style={{ background: 'linear-gradient(135deg, #020617 0%, #0F172A 50%, #020617 100%)' }}>
 
-      {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-5"
           style={{ background: '#F97316', filter: 'blur(80px)' }} />
@@ -38,7 +42,6 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md relative">
 
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-black text-2xl mx-auto mb-4 shadow-2xl"
             style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>
@@ -52,7 +55,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Card */}
         <div className="rounded-2xl p-8 shadow-2xl"
           style={{ background: 'rgba(30,41,59,0.8)', border: '1px solid rgba(249,115,22,0.2)', backdropFilter: 'blur(20px)' }}>
 
@@ -92,9 +94,7 @@ export default function LoginPage() {
                   className="sdc-input text-sm pr-10"
                   autoComplete="current-password"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd(!showPwd)}
+                <button type="button" onClick={() => setShowPwd(!showPwd)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
                   {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -120,13 +120,10 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-6 pt-4 border-t text-center" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-            <p className="text-xs text-slate-500">
-              Accès réservé à l'équipe Son Du Ciel Events
-            </p>
+            <p className="text-xs text-slate-500">Accès réservé à l'équipe Son Du Ciel Events</p>
           </div>
         </div>
 
-        {/* Footer */}
         <p className="text-center text-xs text-slate-600 mt-6">
           SDC Manager v1.0 · Espace Pavageau, Ebimpé · Abidjan
         </p>
