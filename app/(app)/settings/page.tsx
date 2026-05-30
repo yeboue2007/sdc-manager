@@ -152,8 +152,8 @@ export default function SettingsPage() {
             {[
               ['Événement', 'Le Spécial 51 Jours Chrono du Mondial 2026'],
               ['Organisateur', 'Son Du Ciel Events'],
-              ['Contact', 'Michel Adiko'],
-              ['Lieu', 'Espace Pavageau, Ebimpé, Abidjan'],
+              ['Contact', '+225 05 65 48 24 55'],
+              ['Lieu', "Terrain du village d'Ebimpé, Abidjan"],
               ['Début', '30 Mai 2026'],
               ['Fin', '19 Juillet 2026'],
               ['Surface', '~3 000 m²'],

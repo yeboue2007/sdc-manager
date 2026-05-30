@@ -1,7 +1,7 @@
 {
   "name": "SDC Manager — Son Du Ciel Events",
   "short_name": "SDC Manager",
-  "description": "Gestion de l'événement Le Spécial 51 Jours Chrono du Mondial 2026 — Espace Pavageau, Ebimpé, Abidjan",
+  "description": "Gestion de l'événement Le Spécial 51 Jours Chrono du Mondial 2026 — Terrain du village d'Ebimpé, Abidjan",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
