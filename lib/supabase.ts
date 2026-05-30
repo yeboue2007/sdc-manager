@@ -17,3 +17,4 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   billetterie: 'Billetterie',
 }
 // auto-confirm enabled Sat May 30 16:46:12 UTC 2026
+// updated 1780160485
