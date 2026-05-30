@@ -1,9 +1,7 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "https://fcbilnbojaqjjfqbyoqi.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjYmlsbmJvamFxampmcWJ5b3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNTUzMjIsImV4cCI6MjA5NTYzMTMyMn0.NA8siWdNKKhsH9p8mA4gagVVyUiq3LyyO-nUyoDt4U8"
-  }
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "outputDirectory": ".next"
 }
