@@ -47,7 +47,7 @@ export default function SettingsPage() {
 
   async function loadAll() {
     const [profRes, pdvRes, userRes] = await Promise.all([
-      supabase.from('user_profiles').select('*').order('full_name'),
+      supabase.from('admin_users_view').select('*').order('full_name'),
       supabase.from('points_de_vente').select('*').order('nom'),
       supabase.auth.getUser()
     ])
