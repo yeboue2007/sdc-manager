@@ -1,13 +1,13 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { ROLE_ACCESS, ROLE_LABELS, UserProfile, UserRole } from '@/lib/auth'
+import { ROLE_ACCESS, ROLE_LABELS, UserRole } from '@/lib/auth'
 import {
   LayoutDashboard, CreditCard, Package, UtensilsCrossed,
-  Users, Receipt, BarChart3, Ticket, Bell, Menu, X,
-  LogOut, Settings, ShieldAlert, Loader2
+  Users, Receipt, BarChart3, Ticket, Bell,
+  Menu, X, LogOut, Settings, ShieldAlert
 } from 'lucide-react'
 
 const ALL_NAV = [
@@ -23,39 +23,34 @@ const ALL_NAV = [
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [ready, setReady] = useState(false)
+  const [fullName, setFullName] = useState('')
+  const [role, setRole] = useState<UserRole | null>(null)
   const pathname = usePathname()
-  const router = useRouter()
+  const loaded = useRef(false)
 
   useEffect(() => {
-    // Charger le profil depuis user_profiles directement
-    async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setReady(true)
-        return
-      }
+    if (loaded.current) return
+    loaded.current = true
+
+    async function load() {
+      // 1. Récupérer la session
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
+
+      // 2. Lire le profil
       const { data } = await supabase
         .from('user_profiles')
-        .select('id, full_name, role, phone, active')
-        .eq('id', user.id)
+        .select('full_name, role')
+        .eq('id', session.user.id)
         .single()
 
       if (data) {
-        setProfile({
-          id: user.id,
-          email: user.email || '',
-          full_name: data.full_name,
-          role: data.role as UserRole,
-          phone: data.phone,
-          active: data.active,
-        })
+        setFullName(data.full_name || '')
+        setRole(data.role as UserRole)
       }
-      setReady(true)
     }
 
-    loadProfile()
+    load()
   }, [])
 
   async function handleLogout() {
@@ -63,104 +58,144 @@ export default function Sidebar() {
     window.location.href = '/login'
   }
 
-  const role = profile?.role ?? null
-  const allowedPages = role ? ROLE_ACCESS[role] : []
-  const visibleNav = ALL_NAV.filter(n => allowedPages.includes(n.page))
-  const initial = profile?.full_name?.charAt(0)?.toUpperCase() ?? '?'
-  const roleLabel = role ? ROLE_LABELS[role] : ''
   const isAdmin = role === 'admin'
+  const allowedPages = role ? (ROLE_ACCESS[role] ?? []) : []
+  const visibleNav = ALL_NAV.filter(n => allowedPages.includes(n.page))
+  const initial = fullName?.charAt(0)?.toUpperCase() || ''
 
   return (
     <>
-      <button onClick={() => setOpen(!open)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg"
-        style={{ background: '#F97316' }}>
+      {/* Bouton burger mobile */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          position: 'fixed', top: 16, left: 16, zIndex: 50,
+          background: '#F97316', border: 'none', borderRadius: 10,
+          padding: 8, cursor: 'pointer', display: 'flex',
+        }}
+        className="lg:hidden">
         {open ? <X size={20} color="white" /> : <Menu size={20} color="white" />}
       </button>
 
+      {/* Overlay mobile */}
       {open && (
-        <div className="lg:hidden fixed inset-0 bg-black/60 z-40" onClick={() => setOpen(false)} />
+        <div
+          onClick={() => setOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 40 }}
+          className="lg:hidden"
+        />
       )}
 
-      <aside
-        className={`fixed top-0 left-0 h-full w-64 z-40 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
-        style={{ background: '#020617', borderRight: '1px solid rgba(249,115,22,0.15)' }}>
+      {/* Sidebar */}
+      <aside style={{
+        position: 'fixed', top: 0, left: 0, height: '100%', width: 256,
+        zIndex: 40, display: 'flex', flexDirection: 'column',
+        background: '#020617',
+        borderRight: '1px solid rgba(249,115,22,0.15)',
+        transform: open ? 'translateX(0)' : undefined,
+        transition: 'transform 0.3s',
+      }}
+      className={`${open ? '' : '-translate-x-full'} lg:translate-x-0`}>
 
         {/* Logo */}
-        <div className="p-5 border-b" style={{ borderColor: 'rgba(249,115,22,0.15)' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-black text-lg"
-              style={{ background: 'linear-gradient(135deg,#F97316,#EA580C)' }}>SDC</div>
+        <div style={{ padding: '20px', borderBottom: '1px solid rgba(249,115,22,0.15)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              background: 'linear-gradient(135deg,#F97316,#EA580C)',
+              color: '#fff', fontWeight: 900, fontSize: 16,
+            }}>SDC</div>
             <div>
-              <div className="font-black text-white text-sm">SDC Manager</div>
-              <div className="text-xs" style={{ color: '#F97316' }}>Son Du Ciel Events</div>
+              <div style={{ color: '#F8FAFC', fontWeight: 900, fontSize: 14 }}>SDC Manager</div>
+              <div style={{ color: '#F97316', fontSize: 11 }}>Son Du Ciel Events</div>
             </div>
           </div>
-          <div className="mt-3 text-xs text-slate-400 text-center py-1.5 rounded-md"
-            style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)' }}>
+          <div style={{
+            marginTop: 12, fontSize: 11, color: '#94A3B8', textAlign: 'center',
+            padding: '6px 8px', borderRadius: 8,
+            background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)',
+          }}>
             🏆 Mondial 2026 — 51 Jours
           </div>
         </div>
 
         {/* Profil */}
-        <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-          {!ready ? (
-            <div className="flex items-center gap-2 text-slate-600 text-xs">
-              <Loader2 size={13} className="animate-spin" /> Chargement...
-            </div>
-          ) : profile ? (
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center font-black text-white text-sm flex-shrink-0"
-                style={{ background: isAdmin ? 'linear-gradient(135deg,#F97316,#EA580C)' : '#1E293B', border: isAdmin ? 'none' : '1px solid #334155' }}>
-                {initial}
-              </div>
-              <div className="min-w-0">
-                <div className="text-white text-xs font-bold truncate">{profile.full_name}</div>
-                <div className="flex items-center gap-1 mt-0.5">
-                  {isAdmin && <ShieldAlert size={10} style={{ color: '#F97316' }} />}
-                  <span className="text-xs font-medium" style={{ color: isAdmin ? '#F97316' : '#64748B' }}>
-                    {roleLabel}
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          {role ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 900, color: '#fff', fontSize: 14,
+                background: isAdmin ? 'linear-gradient(135deg,#F97316,#EA580C)' : '#1E293B',
+                border: isAdmin ? 'none' : '1px solid #334155',
+              }}>{initial || '?'}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: '#F8FAFC', fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {fullName}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                  {isAdmin && <ShieldAlert size={10} color="#F97316" />}
+                  <span style={{ fontSize: 11, color: isAdmin ? '#F97316' : '#64748B', fontWeight: 600 }}>
+                    {ROLE_LABELS[role]}
                   </span>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-slate-600 text-xs">Non connecté</div>
+            <div style={{ color: '#334155', fontSize: 12 }}>Chargement...</div>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 overflow-y-auto scrollbar-thin">
-          <div className="text-xs text-slate-500 uppercase tracking-wider mb-3 px-2">Navigation</div>
-          {!ready ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 size={18} className="animate-spin text-slate-700" />
-            </div>
-          ) : (
-            visibleNav.map(({ href, icon: Icon, label }) => (
-              <Link key={href} href={href} onClick={() => setOpen(false)}
-                className={`sidebar-link mb-1 ${pathname.startsWith(href) ? 'active' : ''}`}>
+        <nav style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+          <div style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, paddingLeft: 8 }}>
+            Navigation
+          </div>
+          {visibleNav.map(({ href, icon: Icon, label }) => {
+            const active = pathname.startsWith(href)
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setOpen(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 14px', borderRadius: 8, marginBottom: 2,
+                  textDecoration: 'none', fontSize: 13, fontWeight: 500,
+                  color: active ? '#F97316' : '#94A3B8',
+                  background: active ? 'rgba(249,115,22,0.12)' : 'transparent',
+                  transition: 'all 0.15s',
+                }}>
                 <Icon size={17} />
-                <span className="text-sm">{label}</span>
+                <span>{label}</span>
               </Link>
-            ))
-          )}
+            )
+          })}
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t" style={{ borderColor: 'rgba(249,115,22,0.15)' }}>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(249,115,22,0.15)' }}>
           {allowedPages.includes('alertes') && (
-            <Link href="/alertes" onClick={() => setOpen(false)} className="sidebar-link mb-1">
-              <Bell size={17} /><span className="text-sm">Alertes</span>
+            <Link href="/alertes" onClick={() => setOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, marginBottom: 4, textDecoration: 'none', color: '#94A3B8', fontSize: 13, fontWeight: 500 }}>
+              <Bell size={17} /><span>Alertes</span>
             </Link>
           )}
           {isAdmin && (
-            <Link href="/settings" onClick={() => setOpen(false)} className="sidebar-link mb-1">
-              <Settings size={17} /><span className="text-sm">Paramètres</span>
+            <Link href="/settings" onClick={() => setOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, marginBottom: 4, textDecoration: 'none', color: '#94A3B8', fontSize: 13, fontWeight: 500 }}>
+              <Settings size={17} /><span>Paramètres</span>
             </Link>
           )}
-          <button onClick={handleLogout} className="sidebar-link w-full mt-1" style={{ color: '#F87171' }}>
-            <LogOut size={17} /><span className="text-sm">Déconnexion</span>
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 14px', borderRadius: 8, width: '100%',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#F87171', fontSize: 13, fontWeight: 500,
+            }}>
+            <LogOut size={17} /><span>Déconnexion</span>
           </button>
         </div>
       </aside>

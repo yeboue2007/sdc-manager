@@ -31,22 +31,21 @@ export interface UserProfile {
   active: boolean
 }
 
-// Charge le profil complet depuis user_profiles — source de vérité unique
 export async function getCurrentProfile(): Promise<UserProfile | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) return null
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from('user_profiles')
     .select('id, full_name, role, phone, active')
-    .eq('id', user.id)
+    .eq('id', session.user.id)
     .single()
 
-  if (error || !data) return null
+  if (!data) return null
 
   return {
-    id: user.id,
-    email: user.email || '',
+    id: session.user.id,
+    email: session.user.email || '',
     full_name: data.full_name,
     role: data.role as UserRole,
     phone: data.phone,
