@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getCurrentProfile, canAccess, UserRole } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
+import { ROLE_ACCESS, UserRole } from '@/lib/auth'
 import { ShieldAlert, Loader2 } from 'lucide-react'
 
 export default function RoleGuard({ page, children }: { page: string; children: React.ReactNode }) {
@@ -9,11 +10,36 @@ export default function RoleGuard({ page, children }: { page: string; children: 
   const router = useRouter()
 
   useEffect(() => {
-    getCurrentProfile().then(profile => {
-      if (!profile) { router.push('/login'); return }
-      if (!profile.active) { router.push('/login'); return }
-      setStatus(canAccess(profile.role, page) ? 'allowed' : 'denied')
-    })
+    async function check() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        window.location.href = '/login'
+        return
+      }
+
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('role, active')
+        .eq('id', user.id)
+        .single()
+
+      if (!data) {
+        // Profil non trouvé — laisser passer quand même (admin peut ne pas avoir profil chargé)
+        setStatus('allowed')
+        return
+      }
+
+      if (!data.active) {
+        window.location.href = '/login'
+        return
+      }
+
+      const role = data.role as UserRole
+      const allowed = ROLE_ACCESS[role]?.includes(page) ?? false
+      setStatus(allowed ? 'allowed' : 'denied')
+    }
+
+    check()
   }, [page])
 
   if (status === 'loading') return (
@@ -31,7 +57,6 @@ export default function RoleGuard({ page, children }: { page: string; children: 
       <div>
         <div className="font-black text-white text-lg">Accès refusé</div>
         <div className="text-slate-400 text-sm mt-1">Vous n&apos;avez pas les droits pour cette page.</div>
-        <div className="text-slate-500 text-xs mt-1">Contactez l&apos;administrateur.</div>
       </div>
       <button onClick={() => router.push('/dashboard')} className="sdc-btn-primary px-6 py-2 text-sm">
         ← Retour au tableau de bord

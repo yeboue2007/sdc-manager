@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getCurrentProfile, ROLE_ACCESS, ROLE_LABELS, UserProfile, UserRole } from '@/lib/auth'
+import { ROLE_ACCESS, ROLE_LABELS, UserProfile, UserRole } from '@/lib/auth'
 import {
   LayoutDashboard, CreditCard, Package, UtensilsCrossed,
   Users, Receipt, BarChart3, Ticket, Bell, Menu, X,
@@ -11,54 +11,56 @@ import {
 } from 'lucide-react'
 
 const ALL_NAV = [
-  { href: '/dashboard',   icon: LayoutDashboard, label: 'Tableau de bord',      page: 'dashboard' },
+  { href: '/dashboard',   icon: LayoutDashboard, label: 'Tableau de bord',         page: 'dashboard' },
   { href: '/caisses',     icon: CreditCard,       label: 'Caisses & Encaissements', page: 'caisses' },
-  { href: '/stock',       icon: Package,          label: 'Stock Boissons',       page: 'stock' },
-  { href: '/stands',      icon: UtensilsCrossed,  label: 'Stands Nourriture',    page: 'stands' },
-  { href: '/personnel',   icon: Users,            label: 'Personnel & Paie',     page: 'personnel' },
-  { href: '/depenses',    icon: Receipt,          label: 'Dépenses',             page: 'depenses' },
-  { href: '/billetterie', icon: Ticket,           label: 'Billetterie & Accès',  page: 'billetterie' },
-  { href: '/rapports',    icon: BarChart3,        label: 'Rapports & Exports',   page: 'rapports' },
+  { href: '/stock',       icon: Package,          label: 'Stock Boissons',          page: 'stock' },
+  { href: '/stands',      icon: UtensilsCrossed,  label: 'Stands Nourriture',       page: 'stands' },
+  { href: '/personnel',   icon: Users,            label: 'Personnel & Paie',        page: 'personnel' },
+  { href: '/depenses',    icon: Receipt,          label: 'Dépenses',                page: 'depenses' },
+  { href: '/billetterie', icon: Ticket,           label: 'Billetterie & Accès',     page: 'billetterie' },
+  { href: '/rapports',    icon: BarChart3,        label: 'Rapports & Exports',      page: 'rapports' },
 ]
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false)
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [ready, setReady] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
 
   useEffect(() => {
-    // Charger le profil dès le montage
-    loadProfile()
-
-    // Écouter les changements de session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === 'SIGNED_OUT') {
-        setProfile(null)
-        router.push('/login')
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        loadProfile()
+    // Charger le profil depuis user_profiles directement
+    async function loadProfile() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setReady(true)
+        return
       }
-    })
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('id, full_name, role, phone, active')
+        .eq('id', user.id)
+        .single()
 
-    return () => subscription.unsubscribe()
-  }, [])
-
-  async function loadProfile() {
-    setLoading(true)
-    const p = await getCurrentProfile()
-    setProfile(p)
-    setLoading(false)
-    // Si pas de profil valide → déconnexion
-    if (!p) {
-      router.push('/login')
+      if (data) {
+        setProfile({
+          id: user.id,
+          email: user.email || '',
+          full_name: data.full_name,
+          role: data.role as UserRole,
+          phone: data.phone,
+          active: data.active,
+        })
+      }
+      setReady(true)
     }
-  }
+
+    loadProfile()
+  }, [])
 
   async function handleLogout() {
     await supabase.auth.signOut()
-    router.push('/login')
+    window.location.href = '/login'
   }
 
   const role = profile?.role ?? null
@@ -102,9 +104,9 @@ export default function Sidebar() {
 
         {/* Profil */}
         <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-          {loading ? (
-            <div className="flex items-center gap-2 text-slate-500 text-xs">
-              <Loader2 size={14} className="animate-spin" /> Chargement...
+          {!ready ? (
+            <div className="flex items-center gap-2 text-slate-600 text-xs">
+              <Loader2 size={13} className="animate-spin" /> Chargement...
             </div>
           ) : profile ? (
             <div className="flex items-center gap-3">
@@ -122,15 +124,17 @@ export default function Sidebar() {
                 </div>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="text-slate-600 text-xs">Non connecté</div>
+          )}
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto scrollbar-thin">
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-3 px-2">Navigation</div>
-          {loading ? (
+          {!ready ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 size={20} className="animate-spin text-slate-600" />
+              <Loader2 size={18} className="animate-spin text-slate-700" />
             </div>
           ) : (
             visibleNav.map(({ href, icon: Icon, label }) => (
@@ -147,21 +151,16 @@ export default function Sidebar() {
         <div className="p-4 border-t" style={{ borderColor: 'rgba(249,115,22,0.15)' }}>
           {allowedPages.includes('alertes') && (
             <Link href="/alertes" onClick={() => setOpen(false)} className="sidebar-link mb-1">
-              <Bell size={17} />
-              <span className="text-sm">Alertes</span>
+              <Bell size={17} /><span className="text-sm">Alertes</span>
             </Link>
           )}
           {isAdmin && (
             <Link href="/settings" onClick={() => setOpen(false)} className="sidebar-link mb-1">
-              <Settings size={17} />
-              <span className="text-sm">Paramètres</span>
+              <Settings size={17} /><span className="text-sm">Paramètres</span>
             </Link>
           )}
-          <button onClick={handleLogout}
-            className="sidebar-link w-full mt-1"
-            style={{ color: '#F87171' }}>
-            <LogOut size={17} />
-            <span className="text-sm">Déconnexion</span>
+          <button onClick={handleLogout} className="sidebar-link w-full mt-1" style={{ color: '#F87171' }}>
+            <LogOut size={17} /><span className="text-sm">Déconnexion</span>
           </button>
         </div>
       </aside>
