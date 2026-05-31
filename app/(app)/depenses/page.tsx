@@ -2,249 +2,452 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import TopBar from '@/components/TopBar'
-import { Plus, X, Save, Pencil, Trash2 } from 'lucide-react'
 import RoleGuard from '@/components/RoleGuard'
+import { Plus, X, Save, Pencil, Trash2, Music, CheckCircle, Clock, XCircle, AlertTriangle } from 'lucide-react'
 
-function formatCFA(n: number) { return new Intl.NumberFormat('fr-FR').format(n) + ' CFA' }
+function formatCFA(n: number) { return new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' CFA' }
 
-const CATEGORIES: Record<string, { label: string, color: string }> = {
-  cachet_artiste:     { label: '🎤 Cachets artistes',    color: '#F97316' },
-  communication:      { label: '📣 Communication',        color: '#F59E0B' },
-  logistique:         { label: '🚛 Logistique',           color: '#16A34A' },
-  location_materiel:  { label: '🎛️ Location matériel',   color: '#3B82F6' },
-  transport:          { label: '🚗 Transport',            color: '#8B5CF6' },
-  securite:           { label: '🛡️ Sécurité',            color: '#EC4899' },
-  electricite:        { label: '⚡ Électricité',          color: '#14B8A6' },
-  restauration_equipe:{ label: '🍱 Restauration équipe', color: '#EF4444' },
-  divers:             { label: '📦 Divers',               color: '#94A3B8' },
+const CATEGORIES: Record<string, { label: string; color: string }> = {
+  cachet_artiste:      { label: '🎤 Cachets artistes',     color: '#F97316' },
+  communication:       { label: '📣 Communication',         color: '#F59E0B' },
+  logistique:          { label: '🚛 Logistique',            color: '#16A34A' },
+  location_materiel:   { label: '🎛️ Location matériel',    color: '#3B82F6' },
+  transport:           { label: '🚗 Transport',             color: '#8B5CF6' },
+  securite:            { label: '🛡️ Sécurité',             color: '#EC4899' },
+  electricite:         { label: '⚡ Électricité',           color: '#14B8A6' },
+  restauration_equipe: { label: '🍱 Restauration équipe',  color: '#EF4444' },
+  divers:              { label: '📦 Divers',                color: '#94A3B8' },
 }
 
-const EMPTY = { date: new Date().toISOString().split('T')[0], categorie: 'divers', libelle: '', montant: '', beneficiaire: '' }
+const STATUTS: Record<string, { label: string; color: string; icon: any }> = {
+  en_negociation: { label: 'En négociation', color: '#F59E0B', icon: Clock },
+  confirme:       { label: 'Confirmé',        color: '#3B82F6', icon: CheckCircle },
+  paye:           { label: 'Payé',            color: '#16A34A', icon: CheckCircle },
+  annule:         { label: 'Annulé',          color: '#EF4444', icon: XCircle },
+}
+
+const EMPTY_DEP = { date: new Date().toISOString().split('T')[0], categorie: 'divers', libelle: '', montant: '', beneficiaire: '' }
+const EMPTY_ART = { nom_artiste: '', manager_contact: '', date_prestation: '', cachet: '', cachet_paye: '', statut: 'en_negociation', notes: '' }
 
 export default function DepensesPage() {
+  const [tab, setTab] = useState<'depenses' | 'artistes'>('depenses')
+
+  // Dépenses
   const [depenses, setDepenses] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState(EMPTY)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [showDepForm, setShowDepForm] = useState(false)
+  const [depForm, setDepForm] = useState(EMPTY_DEP)
+  const [editDepId, setEditDepId] = useState<string | null>(null)
+  const [savingDep, setSavingDep] = useState(false)
   const [filterCateg, setFilterCateg] = useState('')
+
+  // Artistes
+  const [artistes, setArtistes] = useState<any[]>([])
+  const [showArtForm, setShowArtForm] = useState(false)
+  const [artForm, setArtForm] = useState(EMPTY_ART)
+  const [editArtId, setEditArtId] = useState<string | null>(null)
+  const [savingArt, setSavingArt] = useState(false)
+
+  const [loading, setLoading] = useState(true)
+  const [msg, setMsg] = useState('')
 
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
     setLoading(true)
-    const { data, error } = await supabase.from('depenses').select('*').order('date', { ascending: false }).order('created_at', { ascending: false })
-    if (error) console.error(error)
-    setDepenses(data || [])
+    const [dRes, aRes] = await Promise.all([
+      supabase.from('depenses').select('*').order('date', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('artistes').select('*').order('date_prestation', { ascending: true })
+    ])
+    setDepenses(dRes.data || [])
+    setArtistes(aRes.data || [])
     setLoading(false)
   }
 
   function flash(m: string) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
 
-  async function handleSave() {
-    if (!form.libelle || !form.montant) return
-    setSaving(true)
-    const payload = { ...form, montant: parseFloat(form.montant) || 0 }
-    const { error } = editId
-      ? await supabase.from('depenses').update(payload).eq('id', editId)
+  // ── DÉPENSES ──
+  async function saveDep() {
+    if (!depForm.libelle || !depForm.montant) return
+    setSavingDep(true)
+    const payload = { ...depForm, montant: parseFloat(depForm.montant) || 0 }
+    const { error } = editDepId
+      ? await supabase.from('depenses').update(payload).eq('id', editDepId)
       : await supabase.from('depenses').insert(payload)
-    setSaving(false)
-    if (error) { flash('❌ Erreur: ' + error.message); return }
-    flash(editId ? '✅ Dépense modifiée' : '✅ Dépense enregistrée')
-    setShowForm(false); setEditId(null); setForm(EMPTY); loadData()
+    setSavingDep(false)
+    if (error) { flash('❌ ' + error.message); return }
+    flash(editDepId ? '✅ Dépense modifiée' : '✅ Dépense enregistrée')
+    setShowDepForm(false); setEditDepId(null); setDepForm(EMPTY_DEP); loadData()
   }
 
-  async function handleDelete(id: string) {
+  async function deleteDep(id: string) {
     if (!confirm('Supprimer cette dépense ?')) return
-    const { error } = await supabase.from('depenses').delete().eq('id', id)
-    if (error) flash('❌ Erreur')
-    else { flash('✅ Supprimée'); loadData() }
+    await supabase.from('depenses').delete().eq('id', id)
+    flash('✅ Supprimée'); loadData()
   }
 
-  function startEdit(d: any) {
-    setForm({ date: d.date, categorie: d.categorie, libelle: d.libelle, montant: String(d.montant), beneficiaire: d.beneficiaire || '' })
-    setEditId(d.id); setShowForm(true)
+  function startEditDep(d: any) {
+    setDepForm({ date: d.date, categorie: d.categorie, libelle: d.libelle, montant: String(d.montant), beneficiaire: d.beneficiaire || '' })
+    setEditDepId(d.id); setShowDepForm(true)
   }
 
+  // ── ARTISTES ──
+  async function saveArt() {
+    if (!artForm.nom_artiste || !artForm.cachet) return
+    setSavingArt(true)
+    const payload = {
+      nom_artiste: artForm.nom_artiste,
+      manager_contact: artForm.manager_contact || null,
+      date_prestation: artForm.date_prestation || null,
+      cachet: parseFloat(artForm.cachet) || 0,
+      cachet_paye: parseFloat(artForm.cachet_paye) || 0,
+      statut: artForm.statut,
+      notes: artForm.notes || null,
+    }
+    const { error } = editArtId
+      ? await supabase.from('artistes').update(payload).eq('id', editArtId)
+      : await supabase.from('artistes').insert(payload)
+    setSavingArt(false)
+    if (error) { flash('❌ ' + error.message); return }
+    flash(editArtId ? '✅ Artiste modifié' : '✅ Artiste enregistré')
+    setShowArtForm(false); setEditArtId(null); setArtForm(EMPTY_ART); loadData()
+  }
+
+  async function deleteArt(id: string, nom: string) {
+    if (!confirm(`Supprimer ${nom} ?`)) return
+    await supabase.from('artistes').delete().eq('id', id)
+    flash('✅ Supprimé'); loadData()
+  }
+
+  function startEditArt(a: any) {
+    setArtForm({
+      nom_artiste: a.nom_artiste, manager_contact: a.manager_contact || '',
+      date_prestation: a.date_prestation || '', cachet: String(a.cachet),
+      cachet_paye: String(a.cachet_paye || 0), statut: a.statut, notes: a.notes || ''
+    })
+    setEditArtId(a.id); setShowArtForm(true)
+  }
+
+  // Stats
   const today = new Date().toISOString().split('T')[0]
-  const totalJour = depenses.filter(d => d.date === today).reduce((s, d) => s + d.montant, 0)
-  const totalGeneral = depenses.reduce((s, d) => s + d.montant, 0)
-  const filtered = filterCateg ? depenses.filter(d => d.categorie === filterCateg) : depenses
+  const totalDepJour = depenses.filter(d => d.date === today).reduce((s, d) => s + d.montant, 0)
+  const totalDepGlobal = depenses.reduce((s, d) => s + d.montant, 0)
+  const totalCachets = artistes.reduce((s, a) => s + a.cachet, 0)
+  const totalCachetsPayes = artistes.reduce((s, a) => s + (a.cachet_paye || 0), 0)
+  const totalCachetsRestants = totalCachets - totalCachetsPayes
+  const filteredDep = filterCateg ? depenses.filter(d => d.categorie === filterCateg) : depenses
 
-  // Répartition par catégorie — CSS uniquement
   const byCateg = Object.entries(CATEGORIES).map(([key, { label, color }]) => ({
     key, label, color,
     value: depenses.filter(d => d.categorie === key).reduce((s, d) => s + d.montant, 0)
   })).filter(c => c.value > 0).sort((a, b) => b.value - a.value)
-
   const maxCateg = byCateg.length > 0 ? byCateg[0].value : 1
+
+  const S = {
+    card: { background: '#1E293B', borderRadius: 12, padding: 16, marginBottom: 10, border: '1px solid rgba(255,255,255,0.06)' } as React.CSSProperties,
+    label: { color: '#94A3B8', fontSize: 11, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 6 },
+    val: { color: '#F8FAFC', fontSize: 20, fontWeight: 900 },
+    sectionTitle: { color: '#F8FAFC', fontWeight: 700, fontSize: 14, marginBottom: 12 },
+    input: { background: '#0F172A', border: '1px solid #334155', borderRadius: 8, color: '#F8FAFC', padding: '10px 12px', width: '100%', fontSize: 14, boxSizing: 'border-box' as const },
+    btn: { background: 'linear-gradient(135deg,#F97316,#EA580C)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer' },
+    btnSm: { background: '#1E293B', color: '#94A3B8', border: '1px solid #334155', borderRadius: 8, padding: '8px 14px', fontWeight: 600, fontSize: 13, cursor: 'pointer' },
+  }
 
   return (
     <div>
-      <TopBar title="Dépenses" />
-      <div className="p-4 sm:p-6 space-y-4">
+      <TopBar title="Dépenses & Artistes" />
+      <div style={{ padding: 16, maxWidth: 600 }}>
 
         {msg && (
-          <div className="p-3 rounded-lg text-sm font-medium" style={{
-            background: msg.startsWith('✅') ? 'rgba(22,163,74,0.15)' : 'rgba(239,68,68,0.15)',
-            border: `1px solid ${msg.startsWith('✅') ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.3)'}`,
-            color: msg.startsWith('✅') ? '#86EFAC' : '#FCA5A5'
-          }}>{msg}</div>
+          <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13, fontWeight: 600, background: msg.startsWith('✅') ? 'rgba(22,163,74,0.15)' : 'rgba(239,68,68,0.15)', color: msg.startsWith('✅') ? '#86EFAC' : '#FCA5A5', border: `1px solid ${msg.startsWith('✅') ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+            {msg}
+          </div>
         )}
 
-        {/* Totaux */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="sdc-card p-4">
-            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Dépenses du jour</div>
-            <div className="text-xl font-black text-white">{formatCFA(totalJour)}</div>
-          </div>
-          <div className="sdc-card p-4">
-            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total événement</div>
-            <div className="text-xl font-black text-red-400">{formatCFA(totalGeneral)}</div>
-          </div>
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {[
+            { key: 'depenses', label: '💸 Dépenses' },
+            { key: 'artistes', label: '🎤 Artistes & Cachets' },
+          ].map(t => (
+            <button key={t.key} onClick={() => setTab(t.key as any)}
+              style={{ padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none', background: tab === t.key ? 'linear-gradient(135deg,#F97316,#EA580C)' : '#1E293B', color: tab === t.key ? '#fff' : '#94A3B8', flex: 1 }}>
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        {/* Répartition par catégorie — barres CSS */}
-        {byCateg.length > 0 && (
-          <div className="sdc-card p-4 sm:p-5">
-            <h3 className="font-bold text-white text-sm mb-4">Répartition par catégorie</h3>
-            <div className="space-y-3">
-              {byCateg.map(c => {
-                const pct = Math.round((c.value / maxCateg) * 100)
-                return (
-                  <button key={c.key} onClick={() => setFilterCateg(filterCateg === c.key ? '' : c.key)}
-                    className="w-full text-left group"
-                    style={{ background: 'transparent', border: 'none', padding: 0 }}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-slate-300 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
-                        {c.label}
-                        {filterCateg === c.key && <span className="text-orange-400 ml-1">◂ filtré</span>}
-                      </span>
-                      <span className="text-xs font-bold text-white">{formatCFA(c.value)}</span>
+        {/* ═══════ ONGLET DÉPENSES ═══════ */}
+        {tab === 'depenses' && (
+          <>
+            {/* KPIs */}
+            <div style={S.card}>
+              <div style={S.label}>Dépenses du jour</div>
+              <div style={S.val}>{formatCFA(totalDepJour)}</div>
+            </div>
+            <div style={{ ...S.card, border: '1px solid rgba(239,68,68,0.3)' }}>
+              <div style={S.label}>Total dépenses événement</div>
+              <div style={{ ...S.val, color: '#F87171' }}>{formatCFA(totalDepGlobal)}</div>
+            </div>
+
+            {/* Répartition */}
+            {byCateg.length > 0 && (
+              <div style={{ ...S.card, marginBottom: 14 }}>
+                <div style={S.sectionTitle}>Répartition par catégorie</div>
+                {byCateg.map(c => {
+                  const pct = Math.round((c.value / maxCateg) * 100)
+                  return (
+                    <div key={c.key} style={{ marginBottom: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <button onClick={() => setFilterCateg(filterCateg === c.key ? '' : c.key)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, display: 'inline-block', flexShrink: 0 }} />
+                          <span style={{ color: '#CBD5E1', fontSize: 12 }}>{c.label}</span>
+                          {filterCateg === c.key && <span style={{ color: '#F97316', fontSize: 11 }}>◂</span>}
+                        </button>
+                        <span style={{ color: '#F8FAFC', fontSize: 12, fontWeight: 700 }}>{formatCFA(c.value)}</span>
+                      </div>
+                      <div style={{ height: 5, borderRadius: 99, background: '#0F172A', overflow: 'hidden' }}>
+                        <div style={{ height: 5, borderRadius: 99, width: pct + '%', background: c.color }} />
+                      </div>
                     </div>
-                    <div className="h-2 rounded-full overflow-hidden" style={{ background: '#1E293B' }}>
-                      <div className="h-2 rounded-full transition-all duration-500 group-hover:opacity-80"
-                        style={{ width: `${pct}%`, background: c.color }} />
-                    </div>
+                  )
+                })}
+                {filterCateg && (
+                  <button onClick={() => setFilterCateg('')}
+                    style={{ background: 'none', border: 'none', color: '#F97316', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
+                    ✕ Effacer le filtre
                   </button>
-                )
-              })}
-            </div>
-            {filterCateg && (
-              <button onClick={() => setFilterCateg('')}
-                className="mt-3 text-xs text-orange-400 hover:text-white flex items-center gap-1">
-                <X size={11} /> Effacer le filtre
-              </button>
+                )}
+              </div>
             )}
-          </div>
+
+            {/* Bouton ajouter */}
+            <button onClick={() => { setShowDepForm(v => !v); setEditDepId(null); setDepForm(EMPTY_DEP) }}
+              style={{ ...S.btn, width: '100%', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              {showDepForm ? '✕ Annuler' : '+ Nouvelle dépense'}
+            </button>
+
+            {/* Formulaire dépense */}
+            {showDepForm && (
+              <div style={{ ...S.card, marginBottom: 14 }}>
+                <div style={S.sectionTitle}>{editDepId ? '✏️ Modifier la dépense' : '➕ Nouvelle dépense'}</div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Date</div>
+                  <input type="date" value={depForm.date} onChange={e => setDepForm({ ...depForm, date: e.target.value })} style={S.input} />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Catégorie</div>
+                  <select value={depForm.categorie} onChange={e => setDepForm({ ...depForm, categorie: e.target.value })} style={S.input}>
+                    {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Libellé *</div>
+                  <input value={depForm.libelle} onChange={e => setDepForm({ ...depForm, libelle: e.target.value })} style={S.input} placeholder="Description..." />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Montant (CFA) *</div>
+                  <input type="number" value={depForm.montant} onChange={e => setDepForm({ ...depForm, montant: e.target.value })} style={S.input} placeholder="0" />
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Bénéficiaire</div>
+                  <input value={depForm.beneficiaire} onChange={e => setDepForm({ ...depForm, beneficiaire: e.target.value })} style={S.input} placeholder="Nom ou société..." />
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={saveDep} disabled={savingDep || !depForm.libelle || !depForm.montant}
+                    style={{ ...S.btn, flex: 1, opacity: (savingDep || !depForm.libelle || !depForm.montant) ? 0.5 : 1 }}>
+                    {savingDep ? 'Enregistrement...' : editDepId ? 'Modifier' : 'Enregistrer'}
+                  </button>
+                  <button onClick={() => setShowDepForm(false)} style={S.btnSm}>Annuler</button>
+                </div>
+              </div>
+            )}
+
+            {/* Liste dépenses */}
+            <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(249,115,22,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#F8FAFC', fontWeight: 700, fontSize: 13 }}>
+                  {filterCateg ? CATEGORIES[filterCateg]?.label : 'Toutes les dépenses'} ({filteredDep.length})
+                </span>
+                <button onClick={loadData} style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', fontSize: 18 }}>↺</button>
+              </div>
+              {loading ? (
+                <div style={{ padding: 32, textAlign: 'center', color: '#475569' }}>Chargement...</div>
+              ) : filteredDep.length === 0 ? (
+                <div style={{ padding: 32, textAlign: 'center', color: '#475569' }}>Aucune dépense.</div>
+              ) : filteredDep.map((d, i) => (
+                <div key={d.id} style={{ padding: '12px 16px', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: '#F8FAFC', fontSize: 13, fontWeight: 600 }}>{d.libelle}</div>
+                    <div style={{ color: CATEGORIES[d.categorie]?.color || '#94A3B8', fontSize: 11, marginTop: 2 }}>{CATEGORIES[d.categorie]?.label}</div>
+                    <div style={{ color: '#475569', fontSize: 11, marginTop: 1 }}>{new Date(d.date).toLocaleDateString('fr-FR')}{d.beneficiaire ? ' · ' + d.beneficiaire : ''}</div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ color: '#F87171', fontWeight: 700, fontSize: 14 }}>{formatCFA(d.montant)}</div>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 4, justifyContent: 'flex-end' }}>
+                      <button onClick={() => startEditDep(d)} style={{ background: 'rgba(59,130,246,0.15)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#93C5FD', fontSize: 12 }}>✏️</button>
+                      <button onClick={() => deleteDep(d.id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#FCA5A5', fontSize: 12 }}>🗑️</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
-        {/* Bouton ajouter */}
-        <div className="flex justify-end">
-          <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm(EMPTY) }}
-            className="sdc-btn-primary flex items-center gap-2">
-            {showForm ? <X size={16} /> : <Plus size={16} />}
-            {showForm ? 'Annuler' : 'Nouvelle dépense'}
-          </button>
-        </div>
+        {/* ═══════ ONGLET ARTISTES ═══════ */}
+        {tab === 'artistes' && (
+          <>
+            {/* KPIs artistes */}
+            <div style={S.card}>
+              <div style={S.label}>Total cachets contractuels</div>
+              <div style={S.val}>{formatCFA(totalCachets)}</div>
+            </div>
+            <div style={{ ...S.card, border: '1px solid rgba(22,163,74,0.3)' }}>
+              <div style={S.label}>Déjà payé</div>
+              <div style={{ ...S.val, color: '#4ADE80' }}>{formatCFA(totalCachetsPayes)}</div>
+            </div>
+            <div style={{ ...S.card, border: `1px solid ${totalCachetsRestants > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(22,163,74,0.3)'}`, marginBottom: 14 }}>
+              <div style={S.label}>Reste à payer</div>
+              <div style={{ ...S.val, color: totalCachetsRestants > 0 ? '#F87171' : '#4ADE80' }}>{formatCFA(totalCachetsRestants)}</div>
+            </div>
 
-        {/* Formulaire */}
-        {showForm && (
-          <div className="sdc-card p-5">
-            <h3 className="font-bold text-white mb-4">{editId ? '✏️ Modifier' : '➕ Nouvelle dépense'}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Date</label>
-                <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="sdc-input" />
+            {/* Bouton ajouter */}
+            <button onClick={() => { setShowArtForm(v => !v); setEditArtId(null); setArtForm(EMPTY_ART) }}
+              style={{ ...S.btn, width: '100%', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              {showArtForm ? '✕ Annuler' : '+ Nouvel artiste'}
+            </button>
+
+            {/* Formulaire artiste */}
+            {showArtForm && (
+              <div style={{ ...S.card, marginBottom: 14 }}>
+                <div style={S.sectionTitle}>{editArtId ? '✏️ Modifier l\'artiste' : '➕ Nouvel artiste'}</div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Nom de l'artiste *</div>
+                  <input value={artForm.nom_artiste} onChange={e => setArtForm({ ...artForm, nom_artiste: e.target.value })} style={S.input} placeholder="Nom artiste / groupe" />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Contact manager</div>
+                  <input value={artForm.manager_contact} onChange={e => setArtForm({ ...artForm, manager_contact: e.target.value })} style={S.input} placeholder="+225..." />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Date de prestation</div>
+                  <input type="date" value={artForm.date_prestation} onChange={e => setArtForm({ ...artForm, date_prestation: e.target.value })} style={S.input} />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Statut</div>
+                  <select value={artForm.statut} onChange={e => setArtForm({ ...artForm, statut: e.target.value })} style={S.input}>
+                    {Object.entries(STATUTS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Cachet total (CFA) *</div>
+                  <input type="number" value={artForm.cachet} onChange={e => setArtForm({ ...artForm, cachet: e.target.value })} style={S.input} placeholder="0" />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Avance déjà reçue (CFA)</div>
+                  <input type="number" value={artForm.cachet_paye} onChange={e => setArtForm({ ...artForm, cachet_paye: e.target.value })} style={S.input} placeholder="0" />
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 4 }}>Notes</div>
+                  <textarea value={artForm.notes} onChange={e => setArtForm({ ...artForm, notes: e.target.value })} style={{ ...S.input, resize: 'vertical', minHeight: 64 }} placeholder="Conditions, remarques..." />
+                </div>
+
+                {/* Récap cachet */}
+                {artForm.cachet && (
+                  <div style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 8, padding: 12, marginBottom: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ color: '#94A3B8', fontSize: 12 }}>Cachet total</span>
+                      <span style={{ color: '#F8FAFC', fontWeight: 700, fontSize: 13 }}>{formatCFA(parseFloat(artForm.cachet) || 0)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ color: '#94A3B8', fontSize: 12 }}>Avance reçue</span>
+                      <span style={{ color: '#4ADE80', fontWeight: 700, fontSize: 13 }}>{formatCFA(parseFloat(artForm.cachet_paye) || 0)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 6, marginTop: 4 }}>
+                      <span style={{ color: '#94A3B8', fontSize: 12 }}>Reste à payer</span>
+                      <span style={{ color: '#F87171', fontWeight: 900, fontSize: 15 }}>{formatCFA((parseFloat(artForm.cachet) || 0) - (parseFloat(artForm.cachet_paye) || 0))}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={saveArt} disabled={savingArt || !artForm.nom_artiste || !artForm.cachet}
+                    style={{ ...S.btn, flex: 1, opacity: (savingArt || !artForm.nom_artiste || !artForm.cachet) ? 0.5 : 1 }}>
+                    {savingArt ? 'Enregistrement...' : editArtId ? 'Modifier' : 'Enregistrer'}
+                  </button>
+                  <button onClick={() => setShowArtForm(false)} style={S.btnSm}>Annuler</button>
+                </div>
               </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Catégorie</label>
-                <select value={form.categorie} onChange={e => setForm({ ...form, categorie: e.target.value })} className="sdc-input">
-                  {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
+            )}
+
+            {/* Liste artistes */}
+            {loading ? (
+              <div style={{ padding: 32, textAlign: 'center', color: '#475569' }}>Chargement...</div>
+            ) : artistes.length === 0 ? (
+              <div style={{ ...S.card, textAlign: 'center', color: '#475569', padding: 32 }}>
+                Aucun artiste enregistré.
               </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-slate-400 block mb-1">Libellé *</label>
-                <input value={form.libelle} onChange={e => setForm({ ...form, libelle: e.target.value })} className="sdc-input" placeholder="Description de la dépense..." />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Montant (CFA) *</label>
-                <input type="number" value={form.montant} onChange={e => setForm({ ...form, montant: e.target.value })} className="sdc-input" placeholder="0" />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Bénéficiaire</label>
-                <input value={form.beneficiaire} onChange={e => setForm({ ...form, beneficiaire: e.target.value })} className="sdc-input" placeholder="Nom ou société..." />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-4">
-              <button onClick={handleSave} disabled={saving || !form.libelle || !form.montant}
-                className="sdc-btn-primary flex items-center gap-2 disabled:opacity-50">
-                <Save size={16} />{saving ? 'Enregistrement...' : editId ? 'Modifier' : 'Enregistrer'}
-              </button>
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg text-slate-400" style={{ background: '#1E293B' }}>Annuler</button>
-            </div>
-          </div>
+            ) : artistes.map(a => {
+              const statut = STATUTS[a.statut] || STATUTS.en_negociation
+              const restant = a.cachet - (a.cachet_paye || 0)
+              const pctPaye = a.cachet > 0 ? Math.min(100, Math.round(((a.cachet_paye || 0) / a.cachet) * 100)) : 0
+              return (
+                <div key={a.id} style={{ ...S.card, marginBottom: 10 }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: '#F8FAFC', fontWeight: 900, fontSize: 16 }}>{a.nom_artiste}</div>
+                      {a.manager_contact && <div style={{ color: '#64748B', fontSize: 12, marginTop: 2 }}>📞 {a.manager_contact}</div>}
+                      {a.date_prestation && <div style={{ color: '#64748B', fontSize: 12, marginTop: 1 }}>📅 {new Date(a.date_prestation).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</div>}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                      <span style={{ background: statut.color + '25', color: statut.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, border: `1px solid ${statut.color}40` }}>
+                        {statut.label}
+                      </span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button onClick={() => startEditArt(a)} style={{ background: 'rgba(59,130,246,0.15)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#93C5FD', fontSize: 12 }}>✏️</button>
+                        <button onClick={() => deleteArt(a.id, a.nom_artiste)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#FCA5A5', fontSize: 12 }}>🗑️</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cachet */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ color: '#64748B', fontSize: 10, marginBottom: 2 }}>CACHET TOTAL</div>
+                      <div style={{ color: '#F8FAFC', fontWeight: 900, fontSize: 15 }}>{formatCFA(a.cachet)}</div>
+                    </div>
+                    <div style={{ width: 1, background: 'rgba(255,255,255,0.06)' }} />
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ color: '#64748B', fontSize: 10, marginBottom: 2 }}>REÇU</div>
+                      <div style={{ color: '#4ADE80', fontWeight: 900, fontSize: 15 }}>{formatCFA(a.cachet_paye || 0)}</div>
+                    </div>
+                    <div style={{ width: 1, background: 'rgba(255,255,255,0.06)' }} />
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ color: '#64748B', fontSize: 10, marginBottom: 2 }}>RESTE</div>
+                      <div style={{ color: restant > 0 ? '#F87171' : '#4ADE80', fontWeight: 900, fontSize: 15 }}>{formatCFA(restant)}</div>
+                    </div>
+                  </div>
+
+                  {/* Barre progression paiement */}
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ height: 6, borderRadius: 99, background: '#0F172A', overflow: 'hidden' }}>
+                      <div style={{ height: 6, borderRadius: 99, width: pctPaye + '%', background: pctPaye === 100 ? '#16A34A' : '#F97316', transition: 'width .5s' }} />
+                    </div>
+                    <div style={{ color: '#475569', fontSize: 11, textAlign: 'right', marginTop: 3 }}>{pctPaye}% payé</div>
+                  </div>
+
+                  {a.notes && (
+                    <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, color: '#64748B', fontSize: 12 }}>
+                      📝 {a.notes}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </>
         )}
-
-        {/* Tableau */}
-        <div className="sdc-card overflow-hidden">
-          <div className="p-4 border-b flex justify-between items-center" style={{ borderColor: 'rgba(249,115,22,0.1)' }}>
-            <h3 className="font-bold text-white text-sm">
-              {filterCateg ? `${CATEGORIES[filterCateg]?.label}` : 'Toutes les dépenses'} ({filtered.length})
-            </h3>
-            <button onClick={loadData} className="text-xs text-slate-400 hover:text-orange-400 transition-colors">↺ Actualiser</button>
-          </div>
-
-          {loading ? (
-            <div className="p-8 text-center text-slate-500">Chargement...</div>
-          ) : filtered.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">Aucune dépense enregistrée.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    <th className="text-left p-3 text-slate-500 text-xs uppercase">Date</th>
-                    <th className="text-left p-3 text-slate-500 text-xs uppercase">Libellé</th>
-                    <th className="text-left p-3 text-slate-500 text-xs uppercase hidden sm:table-cell">Catégorie</th>
-                    <th className="text-right p-3 text-slate-500 text-xs uppercase">Montant</th>
-                    <th className="text-center p-3 text-slate-500 text-xs uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(d => (
-                    <tr key={d.id} className="border-t hover:bg-white/[0.02]" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-                      <td className="p-3 text-white text-xs">{new Date(d.date).toLocaleDateString('fr-FR')}</td>
-                      <td className="p-3">
-                        <div className="text-slate-300 text-xs">{d.libelle}</div>
-                        {d.beneficiaire && <div className="text-slate-500 text-xs">{d.beneficiaire}</div>}
-                        <div className="text-xs mt-0.5 sm:hidden" style={{ color: CATEGORIES[d.categorie]?.color || '#94A3B8' }}>
-                          {CATEGORIES[d.categorie]?.label || d.categorie}
-                        </div>
-                      </td>
-                      <td className="p-3 hidden sm:table-cell">
-                        <span className="text-xs" style={{ color: CATEGORIES[d.categorie]?.color || '#94A3B8' }}>
-                          {CATEGORIES[d.categorie]?.label || d.categorie}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right font-bold text-red-400 text-xs">{formatCFA(d.montant)}</td>
-                      <td className="p-3 text-center">
-                        <div className="flex justify-center gap-1.5">
-                          <button onClick={() => startEdit(d)} className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400"><Pencil size={12} /></button>
-                          <button onClick={() => handleDelete(d.id)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400"><Trash2 size={12} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
       </div>
     </div>
   )
