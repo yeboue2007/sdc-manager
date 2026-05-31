@@ -60,51 +60,32 @@ export default function SettingsPage() {
 
   // ── Créer / modifier utilisateur ──────────────────────────────
   async function saveUser() {
-    if (!userForm.email || !userForm.full_name || !userForm.role) return
-    if (!editUserId && !userForm.password) return
+    if (!userForm.full_name || !userForm.role) return
+    if (!editUserId && (!userForm.email || !userForm.password)) return
     setSavingUser(true)
 
     try {
       if (editUserId) {
-        // Modifier le profil existant
-        const updates: any = { full_name: userForm.full_name, role: userForm.role, phone: userForm.phone }
-        const { error } = await supabase.from('user_profiles').update(updates).eq('id', editUserId)
+        // Modifier profil — ne touche pas à la session
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({ full_name: userForm.full_name, role: userForm.role, phone: userForm.phone || null })
+          .eq('id', editUserId)
         if (error) throw error
-
-        // Changer mot de passe si renseigné (admin uniquement via API)
-        if (userForm.password) {
-          // On ne peut pas changer le mdp d'un autre user depuis le client sans service_role
-          // On informe l'admin
-          flash(setUserMsg, '✅ Profil modifié. Le mot de passe ne peut être changé que par l\'utilisateur lui-même.')
-        } else {
-          flash(setUserMsg, '✅ Utilisateur modifié avec succès')
-        }
+        flash(setUserMsg, '✅ Utilisateur modifié avec succès')
       } else {
-        // Créer le compte Auth + profil via signUp
-        const { data: authData, error: authErr } = await supabase.auth.signUp({
-          email: userForm.email,
-          password: userForm.password,
-          options: {
-            data: { full_name: userForm.full_name, role: userForm.role }
-          }
+        // Créer via fonction SQL SECURITY DEFINER
+        // Insère directement dans auth.users SANS créer de session côté client
+        const { data, error } = await supabase.rpc('create_user_by_admin', {
+          p_email: userForm.email,
+          p_password: userForm.password,
+          p_full_name: userForm.full_name,
+          p_role: userForm.role,
+          p_phone: userForm.phone || null
         })
-        if (authErr) throw authErr
-
-        // Créer le profil
-        if (authData.user) {
-          const { error: profErr } = await supabase.from('user_profiles').insert({
-            id: authData.user.id,
-            full_name: userForm.full_name,
-            role: userForm.role,
-            phone: userForm.phone,
-            active: true
-          })
-          if (profErr) {
-            // Le profil sera créé via trigger si disponible
-            console.warn('Profile insert warning:', profErr.message)
-          }
-        }
-        flash(setUserMsg, '✅ Compte créé ! L\'utilisateur peut se connecter avec ses identifiants.')
+        if (error) throw error
+        if (data?.error) throw new Error(data.error)
+        flash(setUserMsg, '✅ Compte créé ! L\'utilisateur peut se connecter immédiatement.')
       }
 
       setShowUserForm(false)
@@ -119,13 +100,11 @@ export default function SettingsPage() {
 
   async function toggleUserActive(id: string, active: boolean, name: string) {
     if (!confirm(`${active ? 'Désactiver' : 'Réactiver'} le compte de ${name} ?`)) return
-    const res = await fetch('/api/admin/toggle-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: id, active: !active })
-    })
-    const data = await res.json()
-    if (data.error) flash(setUserMsg, '❌ Erreur: ' + data.error)
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ active: !active })
+      .eq('id', id)
+    if (error) flash(setUserMsg, '❌ Erreur: ' + error.message)
     else { flash(setUserMsg, `✅ Compte ${!active ? 'réactivé' : 'désactivé'}`); loadAll() }
   }
 
