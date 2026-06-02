@@ -1,10 +1,9 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 
-// Middleware minimal - la protection est gérée côté client
-export async function middleware(request: NextRequest) {
+// Middleware minimal - la protection est gérée dans le layout côté client
+// On protège uniquement les routes API admin
+export function middleware(request: NextRequest) {
   return NextResponse.next()
 }
 
-export const config = {
-  matcher: [],
-}
+export const config = { matcher: [] }

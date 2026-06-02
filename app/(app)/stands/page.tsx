@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import TopBar from '@/components/TopBar'
 import { Plus, X, Save, Pencil, Trash2, TrendingUp, DollarSign } from 'lucide-react'
-import RoleGuard from '@/components/RoleGuard'
 
 function formatCFA(n: number) { return new Intl.NumberFormat('fr-FR').format(n) + ' CFA' }
 

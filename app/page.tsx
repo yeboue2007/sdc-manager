@@ -5,18 +5,14 @@ import { supabase } from '@/lib/supabase'
 export default function Home() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        window.location.href = '/dashboard'
-      } else {
-        window.location.href = '/login'
-      }
+      window.location.replace(session ? '/dashboard' : '/login')
     })
   }, [])
 
   return (
-    <div className="min-h-screen flex items-center justify-center"
-      style={{ background: '#020617' }}>
-      <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#020617' }}>
+      <div style={{ width: 28, height: 28, border: '3px solid #F97316', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

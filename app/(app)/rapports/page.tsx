@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import TopBar from '@/components/TopBar'
-import RoleGuard from '@/components/RoleGuard'
 import { exportPDF, exportXLSX } from '@/lib/export'
 
 function fmt(n: number) { return new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' CFA' }

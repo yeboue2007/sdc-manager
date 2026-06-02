@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import TopBar from '@/components/TopBar'
-import RoleGuard from '@/components/RoleGuard'
 import { Plus, X, Save, Pencil, Trash2, Music, CheckCircle, Clock, XCircle, AlertTriangle } from 'lucide-react'
 
 function formatCFA(n: number) { return new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' CFA' }

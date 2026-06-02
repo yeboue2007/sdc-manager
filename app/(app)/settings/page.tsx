@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import TopBar from '@/components/TopBar'
 import { Save, Plus, X, Pencil, Trash2, Building2, Users, Key, Eye, EyeOff, ShieldCheck, Info } from 'lucide-react'
-import RoleGuard from '@/components/RoleGuard'
 
 const ROLES: Record<string, { label: string; desc: string; color: string }> = {
   admin:              { label: 'Administrateur',     desc: 'Accès total à toutes les fonctions',               color: '#F97316' },
