@@ -357,7 +357,9 @@ export default function StockPage() {
                       <option value="casier">Casier</option><option value="carton">Carton</option><option value="bouteille">Bouteille</option><option value="pack">Pack</option>
                     </select>
                   </div>
-                  <div><label className="text-xs text-slate-400 block mb-1">Bouteilles par {prodForm.unite}</label><input type="number" min="1" value={prodForm.bouteilles_par_casier} onChange={e => setProdForm({ ...prodForm, bouteilles_par_casier: e.target.value })} className="sdc-input" placeholder="12" /></div>
+                  <div><label className="text-xs text-slate-400 block mb-1">Nombre d'unités par {prodForm.unite} *</label><input type="number" min="1" value={prodForm.bouteilles_par_casier} onChange={e => setProdForm({ ...prodForm, bouteilles_par_casier: e.target.value })} className="sdc-input" placeholder="Ex: 24" />
+                    <p className="text-xs text-slate-500 mt-1">Combien de bouteilles/unités contient un {prodForm.unite} de ce produit ? (varie selon le produit : 12, 24, 6...)</p>
+                  </div>
                   <div><label className="text-xs text-slate-400 block mb-1">Prix unitaire (CFA)</label><input type="number" value={prodForm.prix_unitaire} onChange={e => setProdForm({ ...prodForm, prix_unitaire: e.target.value })} className="sdc-input" placeholder="0" /></div>
                 </div>
                 <div className="flex gap-3 mt-4">
@@ -377,6 +379,7 @@ export default function StockPage() {
                       <th className="text-left p-3 text-slate-500 text-xs uppercase">Produit</th>
                       <th className="text-left p-3 text-slate-500 text-xs uppercase">Fournisseur</th>
                       <th className="text-left p-3 text-slate-500 text-xs uppercase">Unité</th>
+                      <th className="text-center p-3 text-slate-500 text-xs uppercase">Conditionnement</th>
                       <th className="text-right p-3 text-slate-500 text-xs uppercase">Prix unitaire</th>
                       <th className="text-center p-3 text-slate-500 text-xs uppercase">Actions</th>
                     </tr></thead>
@@ -386,6 +389,9 @@ export default function StockPage() {
                           <td className="p-3 font-medium text-white">{p.nom}</td>
                           <td className="p-3"><span className="badge warning-badge">{p.fournisseur}</span></td>
                           <td className="p-3 text-slate-400">{p.unite}</td>
+                          <td className="p-3 text-center text-slate-400">
+                            {(p.bouteilles_par_casier || 1) > 1 ? `${p.bouteilles_par_casier} / ${p.unite}` : '—'}
+                          </td>
                           <td className="p-3 text-right text-white">{formatCFA(p.prix_unitaire)}</td>
                           <td className="p-3 text-center">
                             <div className="flex justify-center gap-2">
