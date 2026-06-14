@@ -6,8 +6,8 @@ import { Plus, X, Save, Pencil, Trash2, ArrowDown, ArrowUp, SlidersHorizontal, P
 
 function formatCFA(n: number) { return new Intl.NumberFormat('fr-FR').format(n) + ' CFA' }
 
-const EMPTY_PRODUIT = { nom: '', fournisseur: 'SOLIBRA', unite: 'casier', prix_unitaire: '' }
-const EMPTY_MVT = { produit_id: '', quantite: '', date: new Date().toISOString().split('T')[0], notes: '', fournisseur: '', bon_livraison: '', point_de_vente_id: '' }
+const EMPTY_PRODUIT = { nom: '', fournisseur: 'SOLIBRA', unite: 'casier', prix_unitaire: '', bouteilles_par_casier: '12' }
+const EMPTY_MVT = { produit_id: '', quantite: '', date: new Date().toISOString().split('T')[0], notes: '', fournisseur: '', bon_livraison: '', point_de_vente_id: '', nb_casiers: '', nb_bouteilles: '' }
 
 type Tab = 'stock' | 'entrees' | 'sorties' | 'ajustements' | 'produits'
 
@@ -49,7 +49,7 @@ export default function StockPage() {
   async function saveProduit() {
     if (!prodForm.nom) return
     setSaving(true)
-    const payload = { ...prodForm, prix_unitaire: parseFloat(prodForm.prix_unitaire) || 0, actif: true }
+    const payload = { ...prodForm, prix_unitaire: parseFloat(prodForm.prix_unitaire) || 0, bouteilles_par_casier: parseInt(prodForm.bouteilles_par_casier) || 12, actif: true }
     const { error } = editProdId
       ? await supabase.from('produits_boissons').update(payload).eq('id', editProdId)
       : await supabase.from('produits_boissons').insert(payload)
@@ -67,9 +67,27 @@ export default function StockPage() {
   }
 
   async function saveMvt(type: 'entree' | 'sortie' | 'ajustement') {
-    if (!mvtForm.produit_id || !mvtForm.quantite) return
+    if (!mvtForm.produit_id) return
+
+    let quantiteFinale: number
+
+    if (type === 'sortie') {
+      // Calcul depuis casiers + bouteilles
+      const produit = produits.find(p => p.id === mvtForm.produit_id)
+      const bpc = produit?.bouteilles_par_casier || 1
+      const casiers = parseFloat(mvtForm.nb_casiers) || 0
+      const bouteilles = parseFloat(mvtForm.nb_bouteilles) || 0
+      if (casiers === 0 && bouteilles === 0) return
+      // Quantité totale en bouteilles, convertie dans l'unité du produit
+      const totalBouteilles = casiers * bpc + bouteilles
+      quantiteFinale = bpc > 1 ? totalBouteilles / bpc : totalBouteilles
+    } else {
+      if (!mvtForm.quantite) return
+      quantiteFinale = parseFloat(mvtForm.quantite)
+    }
+
     setSaving(true)
-    const payload = { produit_id: mvtForm.produit_id, type_mouvement: type, quantite: parseFloat(mvtForm.quantite), date: mvtForm.date, notes: mvtForm.notes, fournisseur: mvtForm.fournisseur, bon_livraison: mvtForm.bon_livraison, point_de_vente_id: mvtForm.point_de_vente_id || null }
+    const payload = { produit_id: mvtForm.produit_id, type_mouvement: type, quantite: quantiteFinale, date: mvtForm.date, notes: mvtForm.notes, fournisseur: mvtForm.fournisseur, bon_livraison: mvtForm.bon_livraison, point_de_vente_id: mvtForm.point_de_vente_id || null }
     const { error } = editMvtId
       ? await supabase.from('stock_boissons').update(payload).eq('id', editMvtId)
       : await supabase.from('stock_boissons').insert(payload)
@@ -97,6 +115,13 @@ export default function StockPage() {
   ]
 
   function MvtForm({ type }: { type: 'entree' | 'sortie' | 'ajustement' }) {
+    const produitSel = produits.find(p => p.id === mvtForm.produit_id)
+    const bpc = produitSel?.bouteilles_par_casier || 1
+    const casiers = parseFloat(mvtForm.nb_casiers) || 0
+    const bouteilles = parseFloat(mvtForm.nb_bouteilles) || 0
+    const totalBouteilles = casiers * bpc + bouteilles
+    const quantiteCalculee = bpc > 1 ? totalBouteilles / bpc : totalBouteilles
+
     return (
       <div className="sdc-card p-6 mb-6">
         <h3 className="font-bold text-white mb-4">{editMvtId ? '✏️ Modifier' : '➕ Nouveau'} — {type === 'entree' ? 'Entrée de stock' : type === 'sortie' ? 'Sortie de stock' : 'Ajustement'}</h3>
@@ -107,7 +132,24 @@ export default function StockPage() {
               {produits.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.fournisseur})</option>)}
             </select>
           </div>
-          <div><label className="text-xs text-slate-400 block mb-1">Quantité *</label><input type="number" value={mvtForm.quantite} onChange={e => setMvtForm({ ...mvtForm, quantite: e.target.value })} className="sdc-input" placeholder="0" /></div>
+
+          {type === 'sortie' ? (
+            <>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">
+                  Nombre de casiers {bpc > 1 ? `(${bpc} bouteilles/casier)` : ''}
+                </label>
+                <input type="number" min="0" value={mvtForm.nb_casiers} onChange={e => setMvtForm({ ...mvtForm, nb_casiers: e.target.value })} className="sdc-input" placeholder="0" disabled={!mvtForm.produit_id} />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Nombre de bouteilles (unités)</label>
+                <input type="number" min="0" value={mvtForm.nb_bouteilles} onChange={e => setMvtForm({ ...mvtForm, nb_bouteilles: e.target.value })} className="sdc-input" placeholder="0" disabled={!mvtForm.produit_id} />
+              </div>
+            </>
+          ) : (
+            <div><label className="text-xs text-slate-400 block mb-1">Quantité *</label><input type="number" value={mvtForm.quantite} onChange={e => setMvtForm({ ...mvtForm, quantite: e.target.value })} className="sdc-input" placeholder="0" /></div>
+          )}
+
           <div><label className="text-xs text-slate-400 block mb-1">Date</label><input type="date" value={mvtForm.date} onChange={e => setMvtForm({ ...mvtForm, date: e.target.value })} className="sdc-input" /></div>
           {type === 'entree' && <>
             <div><label className="text-xs text-slate-400 block mb-1">Fournisseur</label><input value={mvtForm.fournisseur} onChange={e => setMvtForm({ ...mvtForm, fournisseur: e.target.value })} className="sdc-input" placeholder="SOLIBRA, BRASSIVOIRE..." /></div>
@@ -123,8 +165,25 @@ export default function StockPage() {
           )}
           <div className={type === 'ajustement' ? 'sm:col-span-2' : ''}><label className="text-xs text-slate-400 block mb-1">Observation</label><input value={mvtForm.notes} onChange={e => setMvtForm({ ...mvtForm, notes: e.target.value })} className="sdc-input" placeholder="Remarques..." /></div>
         </div>
+
+        {/* Récapitulatif sortie */}
+        {type === 'sortie' && produitSel && (casiers > 0 || bouteilles > 0) && (
+          <div className="mt-4 p-3 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <div className="text-xs text-slate-400 mb-1">Récapitulatif de la sortie</div>
+            <div className="text-sm text-white">
+              {casiers > 0 && <span>{casiers} casier{casiers > 1 ? 's' : ''}{bpc > 1 ? ` (${casiers * bpc} bouteilles)` : ''}</span>}
+              {casiers > 0 && bouteilles > 0 && <span> + </span>}
+              {bouteilles > 0 && <span>{bouteilles} bouteille{bouteilles > 1 ? 's' : ''}</span>}
+            </div>
+            <div className="text-sm font-bold mt-1" style={{ color: '#F87171' }}>
+              Total à retirer : {quantiteCalculee.toFixed(2)} {produitSel.unite}{quantiteCalculee !== 1 ? 's' : ''}
+              {bpc > 1 && <span className="text-slate-400 font-normal"> ({totalBouteilles} bouteilles au total)</span>}
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-3 mt-4">
-          <button onClick={() => saveMvt(type)} disabled={saving || !mvtForm.produit_id || !mvtForm.quantite} className="sdc-btn-primary flex items-center gap-2 disabled:opacity-50"><Save size={16} />{saving ? 'Enregistrement...' : editMvtId ? 'Modifier' : 'Enregistrer'}</button>
+          <button onClick={() => saveMvt(type)} disabled={saving || !mvtForm.produit_id || (type === 'sortie' ? (casiers === 0 && bouteilles === 0) : !mvtForm.quantite)} className="sdc-btn-primary flex items-center gap-2 disabled:opacity-50"><Save size={16} />{saving ? 'Enregistrement...' : editMvtId ? 'Modifier' : 'Enregistrer'}</button>
           <button onClick={() => { setShowMvtForm(false); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} className="px-4 py-2 rounded-lg text-slate-400" style={{ background: '#1E293B' }}>Annuler</button>
         </div>
       </div>
@@ -161,7 +220,20 @@ export default function StockPage() {
                     <td className="p-3 text-slate-400">{m.notes || '—'}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => { setMvtForm({ produit_id: m.produit_id, quantite: String(m.quantite), date: m.date, notes: m.notes || '', fournisseur: m.fournisseur || '', bon_livraison: m.bon_livraison || '', point_de_vente_id: m.point_de_vente_id || '' }); setEditMvtId(m.id); setShowMvtForm(true) }} className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400"><Pencil size={13} /></button>
+                        <button onClick={() => {
+                          const isSortie = type === 'sortie'
+                          const bpc = m.produits_boissons ? (produits.find(p => p.id === m.produit_id)?.bouteilles_par_casier || 1) : 1
+                          let nb_casiers = '', nb_bouteilles = ''
+                          if (isSortie) {
+                            const totalBouteilles = m.quantite * bpc
+                            const casiers = Math.floor(totalBouteilles / bpc)
+                            const reste = totalBouteilles - casiers * bpc
+                            nb_casiers = bpc > 1 ? String(Math.floor(m.quantite)) : '0'
+                            nb_bouteilles = bpc > 1 ? String(Math.round((m.quantite - Math.floor(m.quantite)) * bpc)) : String(m.quantite)
+                          }
+                          setMvtForm({ produit_id: m.produit_id, quantite: String(m.quantite), date: m.date, notes: m.notes || '', fournisseur: m.fournisseur || '', bon_livraison: m.bon_livraison || '', point_de_vente_id: m.point_de_vente_id || '', nb_casiers, nb_bouteilles })
+                          setEditMvtId(m.id); setShowMvtForm(true)
+                        }} className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400"><Pencil size={13} /></button>
                         <button onClick={() => deleteMvt(m.id)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400"><Trash2 size={13} /></button>
                       </div>
                     </td>
@@ -275,6 +347,7 @@ export default function StockPage() {
                       <option value="casier">Casier</option><option value="carton">Carton</option><option value="bouteille">Bouteille</option><option value="pack">Pack</option>
                     </select>
                   </div>
+                  <div><label className="text-xs text-slate-400 block mb-1">Bouteilles par {prodForm.unite}</label><input type="number" min="1" value={prodForm.bouteilles_par_casier} onChange={e => setProdForm({ ...prodForm, bouteilles_par_casier: e.target.value })} className="sdc-input" placeholder="12" /></div>
                   <div><label className="text-xs text-slate-400 block mb-1">Prix unitaire (CFA)</label><input type="number" value={prodForm.prix_unitaire} onChange={e => setProdForm({ ...prodForm, prix_unitaire: e.target.value })} className="sdc-input" placeholder="0" /></div>
                 </div>
                 <div className="flex gap-3 mt-4">
@@ -306,7 +379,7 @@ export default function StockPage() {
                           <td className="p-3 text-right text-white">{formatCFA(p.prix_unitaire)}</td>
                           <td className="p-3 text-center">
                             <div className="flex justify-center gap-2">
-                              <button onClick={() => { setProdForm({ nom: p.nom, fournisseur: p.fournisseur, unite: p.unite, prix_unitaire: String(p.prix_unitaire) }); setEditProdId(p.id); setShowProdForm(true) }} className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400"><Pencil size={13} /></button>
+                              <button onClick={() => { setProdForm({ nom: p.nom, fournisseur: p.fournisseur, unite: p.unite, prix_unitaire: String(p.prix_unitaire), bouteilles_par_casier: String(p.bouteilles_par_casier || 12) }); setEditProdId(p.id); setShowProdForm(true) }} className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400"><Pencil size={13} /></button>
                               <button onClick={() => deleteProduit(p.id, p.nom)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400"><Trash2 size={13} /></button>
                             </div>
                           </td>
