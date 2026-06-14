@@ -269,15 +269,25 @@ export default function StockPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {loading ? <div className="text-slate-500">Chargement...</div> : stockActuel.length === 0 ? (
               <div className="col-span-5 sdc-card p-8 text-center text-slate-500">Aucun produit. Ajoutez des produits dans l'onglet "Produits".</div>
-            ) : stockActuel.map(s => (
+            ) : stockActuel.map(s => {
+              const bpc = s.bouteilles_par_casier || 1
+              const casiersEntiers = Math.floor(s.stock_theorique)
+              const bouteillesRestantes = bpc > 1 ? Math.round((s.stock_theorique - casiersEntiers) * bpc) : 0
+              return (
               <div key={s.produit_id} className={`sdc-card p-4 ${s.stock_theorique <= 2 ? 'border-red-500/40' : ''}`}>
                 <div className="text-xs text-slate-400 mb-2 leading-tight">{s.nom}</div>
                 <div className={`text-2xl font-black mb-1 ${s.stock_theorique <= 0 ? 'text-red-500' : s.stock_theorique <= 2 ? 'text-orange-400' : 'text-white'}`}>{s.stock_theorique}</div>
-                <div className="text-xs text-slate-500">{s.unite}</div>
+                <div className="text-xs text-slate-500">{s.unite}{s.stock_theorique !== 1 ? 's' : ''}</div>
+                {bpc > 1 && (
+                  <div className="text-xs text-slate-400 mt-1">
+                    = {casiersEntiers} {s.unite}{casiersEntiers !== 1 ? 's' : ''} + {bouteillesRestantes} bout.
+                  </div>
+                )}
                 {s.stock_theorique <= 2 && <div className="text-xs text-red-400 mt-1 font-bold">⚠️ {s.stock_theorique <= 0 ? 'RUPTURE' : 'Faible'}</div>}
                 <div className="text-xs text-slate-600 mt-1">{s.fournisseur}</div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
