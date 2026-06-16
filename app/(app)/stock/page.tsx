@@ -114,136 +114,36 @@ export default function StockPage() {
     { key: 'produits', label: 'Produits', icon: Package, color: '#8B5CF6' },
   ]
 
-  function MvtForm({ type }: { type: 'entree' | 'sortie' | 'ajustement' }) {
-    const produitSel = produits.find(p => p.id === mvtForm.produit_id)
-    const bpc = produitSel?.bouteilles_par_casier || 1
-    const casiers = parseFloat(mvtForm.nb_casiers) || 0
-    const bouteilles = parseFloat(mvtForm.nb_bouteilles) || 0
-    const totalBouteilles = casiers * bpc + bouteilles
-    const quantiteCalculee = bpc > 1 ? totalBouteilles / bpc : totalBouteilles
-
+  function MvtFormWrapper({ type }: { type: 'entree' | 'sortie' | 'ajustement' }) {
     return (
-      <div className="sdc-card p-6 mb-6">
-        <h3 className="font-bold text-white mb-4">{editMvtId ? '✏️ Modifier' : '➕ Nouveau'} — {type === 'entree' ? 'Entrée de stock' : type === 'sortie' ? 'Sortie de stock' : 'Ajustement'}</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div><label className="text-xs text-slate-400 block mb-1">Produit *</label>
-            <select value={mvtForm.produit_id} onChange={e => setMvtForm({ ...mvtForm, produit_id: e.target.value })} className="sdc-input">
-              <option value="">Sélectionner...</option>
-              {produits.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.fournisseur})</option>)}
-            </select>
-          </div>
-
-          {type === 'sortie' ? (
-            <>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">
-                  Nombre de casiers {bpc > 1 ? `(${bpc} bouteilles/casier)` : ''}
-                </label>
-                <input type="number" min="0" value={mvtForm.nb_casiers} onChange={e => setMvtForm({ ...mvtForm, nb_casiers: e.target.value })} className="sdc-input" placeholder="0" disabled={!mvtForm.produit_id} />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Nombre de bouteilles (unités)</label>
-                <input type="number" min="0" value={mvtForm.nb_bouteilles} onChange={e => setMvtForm({ ...mvtForm, nb_bouteilles: e.target.value })} className="sdc-input" placeholder="0" disabled={!mvtForm.produit_id} />
-              </div>
-            </>
-          ) : (
-            <div><label className="text-xs text-slate-400 block mb-1">Quantité *</label><input type="number" value={mvtForm.quantite} onChange={e => setMvtForm({ ...mvtForm, quantite: e.target.value })} className="sdc-input" placeholder="0" /></div>
-          )}
-
-          <div><label className="text-xs text-slate-400 block mb-1">Date</label><input type="date" value={mvtForm.date} onChange={e => setMvtForm({ ...mvtForm, date: e.target.value })} className="sdc-input" /></div>
-          {type === 'entree' && <>
-            <div><label className="text-xs text-slate-400 block mb-1">Fournisseur</label><input value={mvtForm.fournisseur} onChange={e => setMvtForm({ ...mvtForm, fournisseur: e.target.value })} className="sdc-input" placeholder="SOLIBRA, BRASSIVOIRE..." /></div>
-            <div><label className="text-xs text-slate-400 block mb-1">N° Bon de livraison</label><input value={mvtForm.bon_livraison} onChange={e => setMvtForm({ ...mvtForm, bon_livraison: e.target.value })} className="sdc-input" placeholder="BL-2026-001" /></div>
-          </>}
-          {type === 'sortie' && (
-            <div><label className="text-xs text-slate-400 block mb-1">Destination (bar)</label>
-              <select value={mvtForm.point_de_vente_id} onChange={e => setMvtForm({ ...mvtForm, point_de_vente_id: e.target.value })} className="sdc-input">
-                <option value="">Entrepôt central</option>
-                {points.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
-              </select>
-            </div>
-          )}
-          <div className={type === 'ajustement' ? 'sm:col-span-2' : ''}><label className="text-xs text-slate-400 block mb-1">Observation</label><input value={mvtForm.notes} onChange={e => setMvtForm({ ...mvtForm, notes: e.target.value })} className="sdc-input" placeholder="Remarques..." /></div>
-        </div>
-
-        {/* Récapitulatif sortie */}
-        {type === 'sortie' && produitSel && (casiers > 0 || bouteilles > 0) && (
-          <div className="mt-4 p-3 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-            <div className="text-xs text-slate-400 mb-1">Récapitulatif de la sortie</div>
-            <div className="text-sm text-white">
-              {casiers > 0 && <span>{casiers} casier{casiers > 1 ? 's' : ''}{bpc > 1 ? ` (${casiers * bpc} bouteilles)` : ''}</span>}
-              {casiers > 0 && bouteilles > 0 && <span> + </span>}
-              {bouteilles > 0 && <span>{bouteilles} bouteille{bouteilles > 1 ? 's' : ''}</span>}
-            </div>
-            <div className="text-sm font-bold mt-1" style={{ color: '#F87171' }}>
-              Total à retirer : {quantiteCalculee.toFixed(2)} {produitSel.unite}{quantiteCalculee !== 1 ? 's' : ''}
-              {bpc > 1 && <span className="text-slate-400 font-normal"> ({totalBouteilles} bouteilles au total)</span>}
-            </div>
-          </div>
-        )}
-
-        <div className="flex gap-3 mt-4">
-          <button onClick={() => saveMvt(type)} disabled={saving || !mvtForm.produit_id || (type === 'sortie' ? (casiers === 0 && bouteilles === 0) : !mvtForm.quantite)} className="sdc-btn-primary flex items-center gap-2 disabled:opacity-50"><Save size={16} />{saving ? 'Enregistrement...' : editMvtId ? 'Modifier' : 'Enregistrer'}</button>
-          <button onClick={() => { setShowMvtForm(false); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} className="px-4 py-2 rounded-lg text-slate-400" style={{ background: '#1E293B' }}>Annuler</button>
-        </div>
-      </div>
+      <MvtForm
+        type={type}
+        mvtForm={mvtForm}
+        setMvtForm={setMvtForm}
+        produits={produits}
+        points={points}
+        editMvtId={editMvtId}
+        saving={saving}
+        saveMvt={saveMvt}
+        setShowMvtForm={setShowMvtForm}
+        setEditMvtId={setEditMvtId}
+      />
     )
   }
 
-  function MvtTable({ type, color, label }: { type: string, color: string, label: string }) {
-    const rows = filteredMvt(type)
+  function MvtTableWrapper({ type, color, label }: { type: string, color: string, label: string }) {
     return (
-      <div className="sdc-card overflow-hidden">
-        <div className="p-4 border-b flex justify-between items-center" style={{ borderColor: 'rgba(249,115,22,0.1)' }}>
-          <h3 className="font-bold text-white text-sm">Historique — {label} <span className="text-slate-500 font-normal">({rows.length})</span></h3>
-        </div>
-        {rows.length === 0 ? <div className="p-8 text-center text-slate-500">Aucun mouvement enregistré.</div> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                <th className="text-left p-3 text-slate-500 text-xs uppercase">Date</th>
-                <th className="text-left p-3 text-slate-500 text-xs uppercase">Produit</th>
-                <th className="text-right p-3 text-slate-500 text-xs uppercase">Quantité</th>
-                {type === 'sortie' && <th className="text-left p-3 text-slate-500 text-xs uppercase">Destination</th>}
-                {type === 'entree' && <th className="text-left p-3 text-slate-500 text-xs uppercase">Fournisseur / BL</th>}
-                <th className="text-left p-3 text-slate-500 text-xs uppercase">Observation</th>
-                <th className="text-center p-3 text-slate-500 text-xs uppercase">Actions</th>
-              </tr></thead>
-              <tbody>
-                {rows.map(m => (
-                  <tr key={m.id} className="border-t hover:bg-white/[0.02]" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-                    <td className="p-3 text-white">{new Date(m.date).toLocaleDateString('fr-FR')}</td>
-                    <td className="p-3 text-slate-300 font-medium">{m.produits_boissons?.nom}</td>
-                    <td className="p-3 text-right font-bold" style={{ color }}>{m.quantite}</td>
-                    {type === 'sortie' && <td className="p-3 text-slate-400">{m.points_de_vente?.nom || 'Entrepôt'}</td>}
-                    {type === 'entree' && <td className="p-3 text-slate-400">{[m.fournisseur, m.bon_livraison].filter(Boolean).join(' / ') || '—'}</td>}
-                    <td className="p-3 text-slate-400">{m.notes || '—'}</td>
-                    <td className="p-3 text-center">
-                      <div className="flex justify-center gap-2">
-                        <button onClick={() => {
-                          const isSortie = type === 'sortie'
-                          const bpc = m.produits_boissons ? (produits.find(p => p.id === m.produit_id)?.bouteilles_par_casier || 1) : 1
-                          let nb_casiers = '', nb_bouteilles = ''
-                          if (isSortie) {
-                            const totalBouteilles = m.quantite * bpc
-                            const casiers = Math.floor(totalBouteilles / bpc)
-                            const reste = totalBouteilles - casiers * bpc
-                            nb_casiers = bpc > 1 ? String(Math.floor(m.quantite)) : '0'
-                            nb_bouteilles = bpc > 1 ? String(Math.round((m.quantite - Math.floor(m.quantite)) * bpc)) : String(m.quantite)
-                          }
-                          setMvtForm({ produit_id: m.produit_id, quantite: String(m.quantite), date: m.date, notes: m.notes || '', fournisseur: m.fournisseur || '', bon_livraison: m.bon_livraison || '', point_de_vente_id: m.point_de_vente_id || '', nb_casiers, nb_bouteilles })
-                          setEditMvtId(m.id); setShowMvtForm(true)
-                        }} className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400"><Pencil size={13} /></button>
-                        <button onClick={() => deleteMvt(m.id)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400"><Trash2 size={13} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <MvtTable
+        type={type}
+        color={color}
+        label={label}
+        rows={filteredMvt(type)}
+        produits={produits}
+        setMvtForm={setMvtForm}
+        setEditMvtId={setEditMvtId}
+        setShowMvtForm={setShowMvtForm}
+        deleteMvt={deleteMvt}
+      />
     )
   }
 
@@ -300,8 +200,8 @@ export default function StockPage() {
                 {showMvtForm ? 'Annuler' : 'Nouvelle entrée'}
               </button>
             </div>
-            {showMvtForm && <MvtForm type="entree" />}
-            <MvtTable type="entree" color="#16A34A" label="Entrées de stock" />
+            {showMvtForm && <MvtFormWrapper type="entree" />}
+            <MvtTableWrapper type="entree" color="#16A34A" label="Entrées de stock" />
           </>
         )}
 
@@ -314,8 +214,8 @@ export default function StockPage() {
                 {showMvtForm ? 'Annuler' : 'Nouvelle sortie'}
               </button>
             </div>
-            {showMvtForm && <MvtForm type="sortie" />}
-            <MvtTable type="sortie" color="#EF4444" label="Sorties de stock" />
+            {showMvtForm && <MvtFormWrapper type="sortie" />}
+            <MvtTableWrapper type="sortie" color="#EF4444" label="Sorties de stock" />
           </>
         )}
 
@@ -328,8 +228,8 @@ export default function StockPage() {
                 {showMvtForm ? 'Annuler' : 'Nouvel ajustement'}
               </button>
             </div>
-            {showMvtForm && <MvtForm type="ajustement" />}
-            <MvtTable type="ajustement" color="#F59E0B" label="Ajustements" />
+            {showMvtForm && <MvtFormWrapper type="ajustement" />}
+            <MvtTableWrapper type="ajustement" color="#F59E0B" label="Ajustements" />
           </>
         )}
 
@@ -409,6 +309,166 @@ export default function StockPage() {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────
+// Composants top-level (hors StockPage) pour éviter le
+// remount à chaque frappe — corrige le bug du clavier mobile
+// qui se ferme après chaque caractère saisi.
+// ─────────────────────────────────────────────────────────
+
+function MvtForm({
+  type, mvtForm, setMvtForm, produits, points, editMvtId, saving, saveMvt, setShowMvtForm, setEditMvtId,
+}: {
+  type: 'entree' | 'sortie' | 'ajustement'
+  mvtForm: any
+  setMvtForm: (v: any) => void
+  produits: any[]
+  points: any[]
+  editMvtId: string | null
+  saving: boolean
+  saveMvt: (type: 'entree' | 'sortie' | 'ajustement') => void
+  setShowMvtForm: (v: boolean) => void
+  setEditMvtId: (v: string | null) => void
+}) {
+  const produitSel = produits.find(p => p.id === mvtForm.produit_id)
+  const bpc = produitSel?.bouteilles_par_casier || 1
+  const casiers = parseFloat(mvtForm.nb_casiers) || 0
+  const bouteilles = parseFloat(mvtForm.nb_bouteilles) || 0
+  const totalBouteilles = casiers * bpc + bouteilles
+  const quantiteCalculee = bpc > 1 ? totalBouteilles / bpc : totalBouteilles
+
+  return (
+    <div className="sdc-card p-6 mb-6">
+      <h3 className="font-bold text-white mb-4">{editMvtId ? '✏️ Modifier' : '➕ Nouveau'} — {type === 'entree' ? 'Entrée de stock' : type === 'sortie' ? 'Sortie de stock' : 'Ajustement'}</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div><label className="text-xs text-slate-400 block mb-1">Produit *</label>
+          <select value={mvtForm.produit_id} onChange={e => setMvtForm({ ...mvtForm, produit_id: e.target.value })} className="sdc-input">
+            <option value="">Sélectionner...</option>
+            {produits.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.fournisseur})</option>)}
+          </select>
+        </div>
+
+        {type === 'sortie' ? (
+          <>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">
+                Nombre de casiers {bpc > 1 ? `(${bpc} bouteilles/casier)` : ''}
+              </label>
+              <input type="number" min="0" value={mvtForm.nb_casiers} onChange={e => setMvtForm({ ...mvtForm, nb_casiers: e.target.value })} className="sdc-input" placeholder="0" disabled={!mvtForm.produit_id} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Nombre de bouteilles (unités)</label>
+              <input type="number" min="0" value={mvtForm.nb_bouteilles} onChange={e => setMvtForm({ ...mvtForm, nb_bouteilles: e.target.value })} className="sdc-input" placeholder="0" disabled={!mvtForm.produit_id} />
+            </div>
+          </>
+        ) : (
+          <div><label className="text-xs text-slate-400 block mb-1">Quantité *</label><input type="number" value={mvtForm.quantite} onChange={e => setMvtForm({ ...mvtForm, quantite: e.target.value })} className="sdc-input" placeholder="0" /></div>
+        )}
+
+        <div><label className="text-xs text-slate-400 block mb-1">Date</label><input type="date" value={mvtForm.date} onChange={e => setMvtForm({ ...mvtForm, date: e.target.value })} className="sdc-input" /></div>
+        {type === 'entree' && <>
+          <div><label className="text-xs text-slate-400 block mb-1">Fournisseur</label><input value={mvtForm.fournisseur} onChange={e => setMvtForm({ ...mvtForm, fournisseur: e.target.value })} className="sdc-input" placeholder="SOLIBRA, BRASSIVOIRE..." /></div>
+          <div><label className="text-xs text-slate-400 block mb-1">N° Bon de livraison</label><input value={mvtForm.bon_livraison} onChange={e => setMvtForm({ ...mvtForm, bon_livraison: e.target.value })} className="sdc-input" placeholder="BL-2026-001" /></div>
+        </>}
+        {type === 'sortie' && (
+          <div><label className="text-xs text-slate-400 block mb-1">Destination (bar)</label>
+            <select value={mvtForm.point_de_vente_id} onChange={e => setMvtForm({ ...mvtForm, point_de_vente_id: e.target.value })} className="sdc-input">
+              <option value="">Entrepôt central</option>
+              {points.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
+            </select>
+          </div>
+        )}
+        <div className={type === 'ajustement' ? 'sm:col-span-2' : ''}><label className="text-xs text-slate-400 block mb-1">Observation</label><input value={mvtForm.notes} onChange={e => setMvtForm({ ...mvtForm, notes: e.target.value })} className="sdc-input" placeholder="Remarques..." /></div>
+      </div>
+
+      {/* Récapitulatif sortie */}
+      {type === 'sortie' && produitSel && (casiers > 0 || bouteilles > 0) && (
+        <div className="mt-4 p-3 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+          <div className="text-xs text-slate-400 mb-1">Récapitulatif de la sortie</div>
+          <div className="text-sm text-white">
+            {casiers > 0 && <span>{casiers} casier{casiers > 1 ? 's' : ''}{bpc > 1 ? ` (${casiers * bpc} bouteilles)` : ''}</span>}
+            {casiers > 0 && bouteilles > 0 && <span> + </span>}
+            {bouteilles > 0 && <span>{bouteilles} bouteille{bouteilles > 1 ? 's' : ''}</span>}
+          </div>
+          <div className="text-sm font-bold mt-1" style={{ color: '#F87171' }}>
+            Total à retirer : {quantiteCalculee.toFixed(2)} {produitSel.unite}{quantiteCalculee !== 1 ? 's' : ''}
+            {bpc > 1 && <span className="text-slate-400 font-normal"> ({totalBouteilles} bouteilles au total)</span>}
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-3 mt-4">
+        <button onClick={() => saveMvt(type)} disabled={saving || !mvtForm.produit_id || (type === 'sortie' ? (casiers === 0 && bouteilles === 0) : !mvtForm.quantite)} className="sdc-btn-primary flex items-center gap-2 disabled:opacity-50"><Save size={16} />{saving ? 'Enregistrement...' : editMvtId ? 'Modifier' : 'Enregistrer'}</button>
+        <button onClick={() => { setShowMvtForm(false); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} className="px-4 py-2 rounded-lg text-slate-400" style={{ background: '#1E293B' }}>Annuler</button>
+      </div>
+    </div>
+  )
+}
+
+function MvtTable({
+  type, color, label, rows, produits, setMvtForm, setEditMvtId, setShowMvtForm, deleteMvt,
+}: {
+  type: string
+  color: string
+  label: string
+  rows: any[]
+  produits: any[]
+  setMvtForm: (v: any) => void
+  setEditMvtId: (v: string | null) => void
+  setShowMvtForm: (v: boolean) => void
+  deleteMvt: (id: string) => void
+}) {
+  return (
+    <div className="sdc-card overflow-hidden">
+      <div className="p-4 border-b flex justify-between items-center" style={{ borderColor: 'rgba(249,115,22,0.1)' }}>
+        <h3 className="font-bold text-white text-sm">Historique — {label} <span className="text-slate-500 font-normal">({rows.length})</span></h3>
+      </div>
+      {rows.length === 0 ? <div className="p-8 text-center text-slate-500">Aucun mouvement enregistré.</div> : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <th className="text-left p-3 text-slate-500 text-xs uppercase">Date</th>
+              <th className="text-left p-3 text-slate-500 text-xs uppercase">Produit</th>
+              <th className="text-right p-3 text-slate-500 text-xs uppercase">Quantité</th>
+              {type === 'sortie' && <th className="text-left p-3 text-slate-500 text-xs uppercase">Destination</th>}
+              {type === 'entree' && <th className="text-left p-3 text-slate-500 text-xs uppercase">Fournisseur / BL</th>}
+              <th className="text-left p-3 text-slate-500 text-xs uppercase">Observation</th>
+              <th className="text-center p-3 text-slate-500 text-xs uppercase">Actions</th>
+            </tr></thead>
+            <tbody>
+              {rows.map(m => (
+                <tr key={m.id} className="border-t hover:bg-white/[0.02]" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+                  <td className="p-3 text-white">{new Date(m.date).toLocaleDateString('fr-FR')}</td>
+                  <td className="p-3 text-slate-300 font-medium">{m.produits_boissons?.nom}</td>
+                  <td className="p-3 text-right font-bold" style={{ color }}>{m.quantite}</td>
+                  {type === 'sortie' && <td className="p-3 text-slate-400">{m.points_de_vente?.nom || 'Entrepôt'}</td>}
+                  {type === 'entree' && <td className="p-3 text-slate-400">{[m.fournisseur, m.bon_livraison].filter(Boolean).join(' / ') || '—'}</td>}
+                  <td className="p-3 text-slate-400">{m.notes || '—'}</td>
+                  <td className="p-3 text-center">
+                    <div className="flex justify-center gap-2">
+                      <button onClick={() => {
+                        const isSortie = type === 'sortie'
+                        const bpc = m.produits_boissons ? (produits.find(p => p.id === m.produit_id)?.bouteilles_par_casier || 1) : 1
+                        let nb_casiers = '', nb_bouteilles = ''
+                        if (isSortie) {
+                          nb_casiers = bpc > 1 ? String(Math.floor(m.quantite)) : '0'
+                          nb_bouteilles = bpc > 1 ? String(Math.round((m.quantite - Math.floor(m.quantite)) * bpc)) : String(m.quantite)
+                        }
+                        setMvtForm({ produit_id: m.produit_id, quantite: String(m.quantite), date: m.date, notes: m.notes || '', fournisseur: m.fournisseur || '', bon_livraison: m.bon_livraison || '', point_de_vente_id: m.point_de_vente_id || '', nb_casiers, nb_bouteilles })
+                        setEditMvtId(m.id); setShowMvtForm(true)
+                      }} className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400"><Pencil size={13} /></button>
+                      <button onClick={() => deleteMvt(m.id)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400"><Trash2 size={13} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
