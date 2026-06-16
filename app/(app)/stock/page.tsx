@@ -114,39 +114,6 @@ export default function StockPage() {
     { key: 'produits', label: 'Produits', icon: Package, color: '#8B5CF6' },
   ]
 
-  function MvtFormWrapper({ type }: { type: 'entree' | 'sortie' | 'ajustement' }) {
-    return (
-      <MvtForm
-        type={type}
-        mvtForm={mvtForm}
-        setMvtForm={setMvtForm}
-        produits={produits}
-        points={points}
-        editMvtId={editMvtId}
-        saving={saving}
-        saveMvt={saveMvt}
-        setShowMvtForm={setShowMvtForm}
-        setEditMvtId={setEditMvtId}
-      />
-    )
-  }
-
-  function MvtTableWrapper({ type, color, label }: { type: string, color: string, label: string }) {
-    return (
-      <MvtTable
-        type={type}
-        color={color}
-        label={label}
-        rows={filteredMvt(type)}
-        produits={produits}
-        setMvtForm={setMvtForm}
-        setEditMvtId={setEditMvtId}
-        setShowMvtForm={setShowMvtForm}
-        deleteMvt={deleteMvt}
-      />
-    )
-  }
-
   return (
     <div>
       <TopBar title="Stock Boissons" />
@@ -200,8 +167,10 @@ export default function StockPage() {
                 {showMvtForm ? 'Annuler' : 'Nouvelle entrée'}
               </button>
             </div>
-            {showMvtForm && <MvtFormWrapper type="entree" />}
-            <MvtTableWrapper type="entree" color="#16A34A" label="Entrées de stock" />
+            {showMvtForm && (
+              <MvtForm type="entree" mvtForm={mvtForm} setMvtForm={setMvtForm} produits={produits} points={points} editMvtId={editMvtId} saving={saving} saveMvt={saveMvt} setShowMvtForm={setShowMvtForm} setEditMvtId={setEditMvtId} />
+            )}
+            <MvtTable type="entree" color="#16A34A" label="Entrées de stock" rows={filteredMvt("entree")} produits={produits} setMvtForm={setMvtForm} setEditMvtId={setEditMvtId} setShowMvtForm={setShowMvtForm} deleteMvt={deleteMvt} />
           </>
         )}
 
@@ -214,8 +183,10 @@ export default function StockPage() {
                 {showMvtForm ? 'Annuler' : 'Nouvelle sortie'}
               </button>
             </div>
-            {showMvtForm && <MvtFormWrapper type="sortie" />}
-            <MvtTableWrapper type="sortie" color="#EF4444" label="Sorties de stock" />
+            {showMvtForm && (
+              <MvtForm type="sortie" mvtForm={mvtForm} setMvtForm={setMvtForm} produits={produits} points={points} editMvtId={editMvtId} saving={saving} saveMvt={saveMvt} setShowMvtForm={setShowMvtForm} setEditMvtId={setEditMvtId} />
+            )}
+            <MvtTable type="sortie" color="#EF4444" label="Sorties de stock" rows={filteredMvt("sortie")} produits={produits} setMvtForm={setMvtForm} setEditMvtId={setEditMvtId} setShowMvtForm={setShowMvtForm} deleteMvt={deleteMvt} />
           </>
         )}
 
@@ -228,8 +199,10 @@ export default function StockPage() {
                 {showMvtForm ? 'Annuler' : 'Nouvel ajustement'}
               </button>
             </div>
-            {showMvtForm && <MvtFormWrapper type="ajustement" />}
-            <MvtTableWrapper type="ajustement" color="#F59E0B" label="Ajustements" />
+            {showMvtForm && (
+              <MvtForm type="ajustement" mvtForm={mvtForm} setMvtForm={setMvtForm} produits={produits} points={points} editMvtId={editMvtId} saving={saving} saveMvt={saveMvt} setShowMvtForm={setShowMvtForm} setEditMvtId={setEditMvtId} />
+            )}
+            <MvtTable type="ajustement" color="#F59E0B" label="Ajustements" rows={filteredMvt("ajustement")} produits={produits} setMvtForm={setMvtForm} setEditMvtId={setEditMvtId} setShowMvtForm={setShowMvtForm} deleteMvt={deleteMvt} />
           </>
         )}
 
