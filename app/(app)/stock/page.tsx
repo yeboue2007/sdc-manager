@@ -11,6 +11,18 @@ const EMPTY_MVT = { produit_id: '', quantite: '', date: new Date().toISOString()
 
 type Tab = 'stock' | 'entrees' | 'sorties' | 'ajustements' | 'produits'
 
+const S = {
+  page: { padding: 16, maxWidth: 720 } as React.CSSProperties,
+  card: { background: '#1E293B', borderRadius: 12, padding: 16, marginBottom: 14, border: '1px solid rgba(255,255,255,0.06)' } as React.CSSProperties,
+  input: { background: '#0F172A', border: '1px solid #334155', borderRadius: 8, color: '#F8FAFC', padding: '10px 12px', width: '100%', fontSize: 14, boxSizing: 'border-box' } as React.CSSProperties,
+  label: { color: '#94A3B8', fontSize: 12, marginBottom: 4, display: 'block' } as React.CSSProperties,
+  field: { marginBottom: 12 } as React.CSSProperties,
+  btn: (bg: string) => ({ background: bg, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 } as React.CSSProperties),
+  btnGhost: { background: '#1E293B', color: '#94A3B8', border: '1px solid #334155', borderRadius: 8, padding: '10px 16px', fontSize: 14, cursor: 'pointer' } as React.CSSProperties,
+  btnIcon: (color: string) => ({ background: color + '22', border: 'none', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', color } as React.CSSProperties),
+  tab: (active: boolean, color: string) => ({ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', color: active ? '#fff' : '#94A3B8', background: active ? color + 'cc' : '#1E293B' } as React.CSSProperties),
+}
+
 export default function StockPage() {
   const [produits, setProduits] = useState<any[]>([])
   const [stockActuel, setStockActuel] = useState<any[]>([])
@@ -72,13 +84,11 @@ export default function StockPage() {
     let quantiteFinale: number
 
     if (type === 'sortie') {
-      // Calcul depuis casiers + bouteilles
       const produit = produits.find(p => p.id === mvtForm.produit_id)
       const bpc = produit?.bouteilles_par_casier || 1
       const casiers = parseFloat(mvtForm.nb_casiers) || 0
       const bouteilles = parseFloat(mvtForm.nb_bouteilles) || 0
       if (casiers === 0 && bouteilles === 0) return
-      // Quantité totale en bouteilles, convertie dans l'unité du produit
       const totalBouteilles = casiers * bpc + bouteilles
       quantiteFinale = bpc > 1 ? totalBouteilles / bpc : totalBouteilles
     } else {
@@ -117,15 +127,18 @@ export default function StockPage() {
   return (
     <div>
       <TopBar title="Stock Boissons" />
-      <div className="p-6">
-        {msg && <div className="mb-4 p-3 rounded-lg text-sm font-medium" style={{ background: msg.startsWith('✅') ? 'rgba(22,163,74,0.15)' : 'rgba(239,68,68,0.15)', border: `1px solid ${msg.startsWith('✅') ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.3)'}`, color: msg.startsWith('✅') ? '#86EFAC' : '#FCA5A5' }}>{msg}</div>}
+      <div style={S.page}>
+
+        {msg && (
+          <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13, fontWeight: 600, background: msg.startsWith('✅') ? 'rgba(22,163,74,0.15)' : 'rgba(239,68,68,0.15)', color: msg.startsWith('✅') ? '#86EFAC' : '#FCA5A5', border: `1px solid ${msg.startsWith('✅') ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+            {msg}
+          </div>
+        )}
 
         {/* Tabs */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           {TABS.map(t => (
-            <button key={t.key} onClick={() => { setTab(t.key); setShowMvtForm(false); setShowProdForm(false) }}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${tab === t.key ? 'text-white' : 'text-slate-400 hover:text-white'}`}
-              style={{ background: tab === t.key ? t.color + 'cc' : '#1E293B' }}>
+            <button key={t.key} onClick={() => { setTab(t.key); setShowMvtForm(false); setShowProdForm(false) }} style={S.tab(tab === t.key, t.color)}>
               <t.icon size={15} />{t.label}
             </button>
           ))}
@@ -133,36 +146,46 @@ export default function StockPage() {
 
         {/* Stock actuel */}
         {tab === 'stock' && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {loading ? <div className="text-slate-500">Chargement...</div> : stockActuel.length === 0 ? (
-              <div className="col-span-5 sdc-card p-8 text-center text-slate-500">Aucun produit. Ajoutez des produits dans l'onglet "Produits".</div>
-            ) : stockActuel.map(s => {
-              const bpc = s.bouteilles_par_casier || 1
-              const casiersEntiers = Math.floor(s.stock_theorique)
-              const bouteillesRestantes = bpc > 1 ? Math.round((s.stock_theorique - casiersEntiers) * bpc) : 0
-              return (
-              <div key={s.produit_id} className={`sdc-card p-4 ${s.stock_theorique <= 2 ? 'border-red-500/40' : ''}`}>
-                <div className="text-xs text-slate-400 mb-2 leading-tight">{s.nom}</div>
-                <div className={`text-2xl font-black mb-1 ${s.stock_theorique <= 0 ? 'text-red-500' : s.stock_theorique <= 2 ? 'text-orange-400' : 'text-white'}`}>{s.stock_theorique}</div>
-                <div className="text-xs text-slate-500">{s.unite}{s.stock_theorique !== 1 ? 's' : ''}</div>
-                {bpc > 1 && (
-                  <div className="text-xs text-slate-400 mt-1">
-                    = {casiersEntiers} {s.unite}{casiersEntiers !== 1 ? 's' : ''} + {bouteillesRestantes} bout.
+          loading ? (
+            <div style={{ color: '#64748B', padding: 24, textAlign: 'center' }}>Chargement...</div>
+          ) : stockActuel.length === 0 ? (
+            <div style={{ ...S.card, textAlign: 'center', color: '#64748B', padding: 32 }}>Aucun produit. Ajoutez des produits dans l&apos;onglet &quot;Produits&quot;.</div>
+          ) : stockActuel.map(s => {
+            const bpc = s.bouteilles_par_casier || 1
+            const casiersEntiers = Math.floor(s.stock_theorique)
+            const bouteillesRestantes = bpc > 1 ? Math.round((s.stock_theorique - casiersEntiers) * bpc) : 0
+            const low = s.stock_theorique <= 2
+            return (
+              <div key={s.produit_id} style={{ ...S.card, marginBottom: 10, border: low ? '1px solid rgba(239,68,68,0.4)' : S.card.border }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 6 }}>{s.nom}</div>
+                    <div style={{ color: s.stock_theorique <= 0 ? '#EF4444' : low ? '#FB923C' : '#F8FAFC', fontSize: 24, fontWeight: 900 }}>
+                      {s.stock_theorique} <span style={{ fontSize: 13, color: '#64748B', fontWeight: 400 }}>{s.unite}{s.stock_theorique !== 1 ? 's' : ''}</span>
+                    </div>
+                    {bpc > 1 && (
+                      <div style={{ color: '#94A3B8', fontSize: 12, marginTop: 4 }}>
+                        = {casiersEntiers} {s.unite}{casiersEntiers !== 1 ? 's' : ''} + {bouteillesRestantes} bout.
+                      </div>
+                    )}
                   </div>
-                )}
-                {s.stock_theorique <= 2 && <div className="text-xs text-red-400 mt-1 font-bold">⚠️ {s.stock_theorique <= 0 ? 'RUPTURE' : 'Faible'}</div>}
-                <div className="text-xs text-slate-600 mt-1">{s.fournisseur}</div>
+                  {low && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#F87171', background: 'rgba(239,68,68,0.12)', padding: '3px 8px', borderRadius: 20 }}>
+                      ⚠️ {s.stock_theorique <= 0 ? 'RUPTURE' : 'FAIBLE'}
+                    </span>
+                  )}
+                </div>
+                <div style={{ color: '#475569', fontSize: 11, marginTop: 8 }}>{s.fournisseur}</div>
               </div>
-              )
-            })}
-          </div>
+            )
+          })
         )}
 
         {/* Entrées */}
         {tab === 'entrees' && (
           <>
-            <div className="flex justify-end mb-4">
-              <button onClick={() => { setShowMvtForm(!showMvtForm); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} className="sdc-btn-primary flex items-center gap-2" style={{ background: 'linear-gradient(135deg,#16A34A,#15803D)' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+              <button onClick={() => { setShowMvtForm(!showMvtForm); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} style={S.btn('linear-gradient(135deg,#16A34A,#15803D)')}>
                 {showMvtForm ? <X size={16} /> : <ArrowDown size={16} />}
                 {showMvtForm ? 'Annuler' : 'Nouvelle entrée'}
               </button>
@@ -170,15 +193,15 @@ export default function StockPage() {
             {showMvtForm && (
               <MvtForm type="entree" mvtForm={mvtForm} setMvtForm={setMvtForm} produits={produits} points={points} editMvtId={editMvtId} saving={saving} saveMvt={saveMvt} setShowMvtForm={setShowMvtForm} setEditMvtId={setEditMvtId} />
             )}
-            <MvtTable type="entree" color="#16A34A" label="Entrées de stock" rows={filteredMvt("entree")} produits={produits} setMvtForm={setMvtForm} setEditMvtId={setEditMvtId} setShowMvtForm={setShowMvtForm} deleteMvt={deleteMvt} />
+            <MvtTable type="entree" color="#16A34A" label="Entrées de stock" rows={filteredMvt('entree')} produits={produits} setMvtForm={setMvtForm} setEditMvtId={setEditMvtId} setShowMvtForm={setShowMvtForm} deleteMvt={deleteMvt} />
           </>
         )}
 
         {/* Sorties */}
         {tab === 'sorties' && (
           <>
-            <div className="flex justify-end mb-4">
-              <button onClick={() => { setShowMvtForm(!showMvtForm); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} className="sdc-btn-primary flex items-center gap-2" style={{ background: 'linear-gradient(135deg,#EF4444,#DC2626)' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+              <button onClick={() => { setShowMvtForm(!showMvtForm); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} style={S.btn('linear-gradient(135deg,#EF4444,#DC2626)')}>
                 {showMvtForm ? <X size={16} /> : <ArrowUp size={16} />}
                 {showMvtForm ? 'Annuler' : 'Nouvelle sortie'}
               </button>
@@ -186,15 +209,15 @@ export default function StockPage() {
             {showMvtForm && (
               <MvtForm type="sortie" mvtForm={mvtForm} setMvtForm={setMvtForm} produits={produits} points={points} editMvtId={editMvtId} saving={saving} saveMvt={saveMvt} setShowMvtForm={setShowMvtForm} setEditMvtId={setEditMvtId} />
             )}
-            <MvtTable type="sortie" color="#EF4444" label="Sorties de stock" rows={filteredMvt("sortie")} produits={produits} setMvtForm={setMvtForm} setEditMvtId={setEditMvtId} setShowMvtForm={setShowMvtForm} deleteMvt={deleteMvt} />
+            <MvtTable type="sortie" color="#EF4444" label="Sorties de stock" rows={filteredMvt('sortie')} produits={produits} setMvtForm={setMvtForm} setEditMvtId={setEditMvtId} setShowMvtForm={setShowMvtForm} deleteMvt={deleteMvt} />
           </>
         )}
 
         {/* Ajustements */}
         {tab === 'ajustements' && (
           <>
-            <div className="flex justify-end mb-4">
-              <button onClick={() => { setShowMvtForm(!showMvtForm); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} className="sdc-btn-primary flex items-center gap-2" style={{ background: 'linear-gradient(135deg,#F59E0B,#D97706)' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+              <button onClick={() => { setShowMvtForm(!showMvtForm); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} style={S.btn('linear-gradient(135deg,#F59E0B,#D97706)')}>
                 {showMvtForm ? <X size={16} /> : <SlidersHorizontal size={16} />}
                 {showMvtForm ? 'Annuler' : 'Nouvel ajustement'}
               </button>
@@ -202,94 +225,106 @@ export default function StockPage() {
             {showMvtForm && (
               <MvtForm type="ajustement" mvtForm={mvtForm} setMvtForm={setMvtForm} produits={produits} points={points} editMvtId={editMvtId} saving={saving} saveMvt={saveMvt} setShowMvtForm={setShowMvtForm} setEditMvtId={setEditMvtId} />
             )}
-            <MvtTable type="ajustement" color="#F59E0B" label="Ajustements" rows={filteredMvt("ajustement")} produits={produits} setMvtForm={setMvtForm} setEditMvtId={setEditMvtId} setShowMvtForm={setShowMvtForm} deleteMvt={deleteMvt} />
+            <MvtTable type="ajustement" color="#F59E0B" label="Ajustements" rows={filteredMvt('ajustement')} produits={produits} setMvtForm={setMvtForm} setEditMvtId={setEditMvtId} setShowMvtForm={setShowMvtForm} deleteMvt={deleteMvt} />
           </>
         )}
 
         {/* Produits */}
         {tab === 'produits' && (
           <>
-            <div className="flex justify-end mb-4">
-              <button onClick={() => { setShowProdForm(!showProdForm); setEditProdId(null); setProdForm(EMPTY_PRODUIT) }} className="sdc-btn-primary flex items-center gap-2">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+              <button onClick={() => { setShowProdForm(!showProdForm); setEditProdId(null); setProdForm(EMPTY_PRODUIT) }} style={S.btn('linear-gradient(135deg,#F97316,#EA580C)')}>
                 {showProdForm ? <X size={16} /> : <Plus size={16} />}
                 {showProdForm ? 'Annuler' : 'Ajouter un produit'}
               </button>
             </div>
+
             {showProdForm && (
-              <div className="sdc-card p-6 mb-6">
-                <h3 className="font-bold text-white mb-4">{editProdId ? '✏️ Modifier le produit' : '➕ Nouveau produit'}</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div><label className="text-xs text-slate-400 block mb-1">Nom du produit *</label><input value={prodForm.nom} onChange={e => setProdForm({ ...prodForm, nom: e.target.value })} className="sdc-input" placeholder="Ex: Bock 65cl" /></div>
-                  <div><label className="text-xs text-slate-400 block mb-1">Fournisseur</label>
-                    <select value={prodForm.fournisseur} onChange={e => setProdForm({ ...prodForm, fournisseur: e.target.value })} className="sdc-input">
-                      <option value="SOLIBRA">SOLIBRA</option><option value="BRASSIVOIRE">BRASSIVOIRE</option><option value="AUTRE">AUTRE</option>
-                    </select>
-                  </div>
-                  <div><label className="text-xs text-slate-400 block mb-1">Unité</label>
-                    <select value={prodForm.unite} onChange={e => setProdForm({ ...prodForm, unite: e.target.value })} className="sdc-input">
-                      <option value="casier">Casier</option><option value="carton">Carton</option><option value="bouteille">Bouteille</option><option value="pack">Pack</option>
-                    </select>
-                  </div>
-                  <div><label className="text-xs text-slate-400 block mb-1">Nombre d'unités par {prodForm.unite} *</label><input type="number" min="1" value={prodForm.bouteilles_par_casier} onChange={e => setProdForm({ ...prodForm, bouteilles_par_casier: e.target.value })} className="sdc-input" placeholder="Ex: 24" />
-                    <p className="text-xs text-slate-500 mt-1">Combien de bouteilles/unités contient un {prodForm.unite} de ce produit ? (varie selon le produit : 12, 24, 6...)</p>
-                  </div>
-                  <div><label className="text-xs text-slate-400 block mb-1">Prix unitaire (CFA)</label><input type="number" value={prodForm.prix_unitaire} onChange={e => setProdForm({ ...prodForm, prix_unitaire: e.target.value })} className="sdc-input" placeholder="0" /></div>
+              <div style={S.card}>
+                <div style={{ color: '#F8FAFC', fontWeight: 700, fontSize: 15, marginBottom: 14 }}>
+                  {editProdId ? '✏️ Modifier le produit' : '➕ Nouveau produit'}
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={saveProduit} disabled={saving || !prodForm.nom} className="sdc-btn-primary flex items-center gap-2 disabled:opacity-50"><Save size={16} />{saving ? 'Enregistrement...' : editProdId ? 'Modifier' : 'Ajouter'}</button>
-                  <button onClick={() => setShowProdForm(false)} className="px-4 py-2 rounded-lg text-slate-400" style={{ background: '#1E293B' }}>Annuler</button>
+
+                <div style={S.field}>
+                  <label style={S.label}>Nom du produit *</label>
+                  <input value={prodForm.nom} onChange={e => setProdForm({ ...prodForm, nom: e.target.value })} style={S.input} placeholder="Ex: Bock 65cl" />
+                </div>
+
+                <div style={S.field}>
+                  <label style={S.label}>Fournisseur</label>
+                  <select value={prodForm.fournisseur} onChange={e => setProdForm({ ...prodForm, fournisseur: e.target.value })} style={S.input}>
+                    <option value="SOLIBRA">SOLIBRA</option>
+                    <option value="BRASSIVOIRE">BRASSIVOIRE</option>
+                    <option value="AUTRE">AUTRE</option>
+                  </select>
+                </div>
+
+                <div style={S.field}>
+                  <label style={S.label}>Unité</label>
+                  <select value={prodForm.unite} onChange={e => setProdForm({ ...prodForm, unite: e.target.value })} style={S.input}>
+                    <option value="casier">Casier</option>
+                    <option value="carton">Carton</option>
+                    <option value="bouteille">Bouteille</option>
+                    <option value="pack">Pack</option>
+                  </select>
+                </div>
+
+                <div style={S.field}>
+                  <label style={S.label}>Nombre d&apos;unités par {prodForm.unite} *</label>
+                  <input type="number" min="1" value={prodForm.bouteilles_par_casier} onChange={e => setProdForm({ ...prodForm, bouteilles_par_casier: e.target.value })} style={S.input} placeholder="Ex: 24" />
+                  <p style={{ color: '#64748B', fontSize: 11, marginTop: 4 }}>
+                    Combien de bouteilles/unités contient un {prodForm.unite} de ce produit ? (varie selon le produit : 12, 24, 6...)
+                  </p>
+                </div>
+
+                <div style={S.field}>
+                  <label style={S.label}>Prix unitaire (CFA)</label>
+                  <input type="number" value={prodForm.prix_unitaire} onChange={e => setProdForm({ ...prodForm, prix_unitaire: e.target.value })} style={S.input} placeholder="0" />
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                  <button onClick={saveProduit} disabled={saving || !prodForm.nom} style={{ ...S.btn('linear-gradient(135deg,#F97316,#EA580C)'), opacity: (saving || !prodForm.nom) ? 0.5 : 1 }}>
+                    <Save size={16} />{saving ? 'Enregistrement...' : editProdId ? 'Modifier' : 'Ajouter'}
+                  </button>
+                  <button onClick={() => setShowProdForm(false)} style={S.btnGhost}>Annuler</button>
                 </div>
               </div>
             )}
-            <div className="sdc-card overflow-hidden">
-              <div className="p-4 border-b" style={{ borderColor: 'rgba(249,115,22,0.1)' }}>
-                <h3 className="font-bold text-white text-sm">Catalogue produits ({produits.length})</h3>
-              </div>
-              {produits.length === 0 ? <div className="p-8 text-center text-slate-500">Aucun produit.</div> : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                      <th className="text-left p-3 text-slate-500 text-xs uppercase">Produit</th>
-                      <th className="text-left p-3 text-slate-500 text-xs uppercase">Fournisseur</th>
-                      <th className="text-left p-3 text-slate-500 text-xs uppercase">Unité</th>
-                      <th className="text-center p-3 text-slate-500 text-xs uppercase">Conditionnement</th>
-                      <th className="text-right p-3 text-slate-500 text-xs uppercase">Prix unitaire</th>
-                      <th className="text-center p-3 text-slate-500 text-xs uppercase">Actions</th>
-                    </tr></thead>
-                    <tbody>
-                      {produits.map(p => (
-                        <tr key={p.id} className="border-t hover:bg-white/[0.02]" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-                          <td className="p-3 font-medium text-white">{p.nom}</td>
-                          <td className="p-3"><span className="badge warning-badge">{p.fournisseur}</span></td>
-                          <td className="p-3 text-slate-400">{p.unite}</td>
-                          <td className="p-3 text-center text-slate-400">
-                            {(p.bouteilles_par_casier || 1) > 1 ? `${p.bouteilles_par_casier} / ${p.unite}` : '—'}
-                          </td>
-                          <td className="p-3 text-right text-white">{formatCFA(p.prix_unitaire)}</td>
-                          <td className="p-3 text-center">
-                            <div className="flex justify-center gap-2">
-                              <button onClick={() => { setProdForm({ nom: p.nom, fournisseur: p.fournisseur, unite: p.unite, prix_unitaire: String(p.prix_unitaire), bouteilles_par_casier: String(p.bouteilles_par_casier || 12) }); setEditProdId(p.id); setShowProdForm(true) }} className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400"><Pencil size={13} /></button>
-                              <button onClick={() => deleteProduit(p.id, p.nom)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400"><Trash2 size={13} /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+
+            <div style={{ color: '#94A3B8', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+              Catalogue produits ({produits.length})
             </div>
+            {produits.length === 0 ? (
+              <div style={{ ...S.card, textAlign: 'center', color: '#64748B', padding: 32 }}>Aucun produit.</div>
+            ) : produits.map(p => (
+              <div key={p.id} style={{ ...S.card, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: '#F8FAFC', fontWeight: 700, fontSize: 14 }}>{p.nom}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: '#F59E0B', background: 'rgba(245,158,11,0.12)', padding: '2px 8px', borderRadius: 20 }}>{p.fournisseur}</span>
+                    <span style={{ fontSize: 11, color: '#94A3B8' }}>{p.unite}</span>
+                    {(p.bouteilles_par_casier || 1) > 1 && (
+                      <span style={{ fontSize: 11, color: '#94A3B8' }}>· {p.bouteilles_par_casier} / {p.unite}</span>
+                    )}
+                  </div>
+                  <div style={{ color: '#F8FAFC', fontSize: 13, fontWeight: 700, marginTop: 4 }}>{formatCFA(p.prix_unitaire)}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => { setProdForm({ nom: p.nom, fournisseur: p.fournisseur, unite: p.unite, prix_unitaire: String(p.prix_unitaire), bouteilles_par_casier: String(p.bouteilles_par_casier || 12) }); setEditProdId(p.id); setShowProdForm(true) }} style={S.btnIcon('#93C5FD')}><Pencil size={14} /></button>
+                  <button onClick={() => deleteProduit(p.id, p.nom)} style={S.btnIcon('#FCA5A5')}><Trash2 size={14} /></button>
+                </div>
+              </div>
+            ))}
           </>
         )}
+
       </div>
     </div>
   )
 }
 
 // ─────────────────────────────────────────────────────────
-// Composants top-level (hors StockPage) pour éviter le
-// remount à chaque frappe — corrige le bug du clavier mobile
-// qui se ferme après chaque caractère saisi.
+// Composants top-level (hors StockPage), CSS inline pur.
 // ─────────────────────────────────────────────────────────
 
 function MvtForm({
@@ -314,68 +349,94 @@ function MvtForm({
   const quantiteCalculee = bpc > 1 ? totalBouteilles / bpc : totalBouteilles
 
   return (
-    <div className="sdc-card p-6 mb-6">
-      <h3 className="font-bold text-white mb-4">{editMvtId ? '✏️ Modifier' : '➕ Nouveau'} — {type === 'entree' ? 'Entrée de stock' : type === 'sortie' ? 'Sortie de stock' : 'Ajustement'}</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div><label className="text-xs text-slate-400 block mb-1">Produit *</label>
-          <select value={mvtForm.produit_id} onChange={e => setMvtForm({ ...mvtForm, produit_id: e.target.value })} className="sdc-input">
-            <option value="">Sélectionner...</option>
-            {produits.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.fournisseur})</option>)}
+    <div style={S.card}>
+      <div style={{ color: '#F8FAFC', fontWeight: 700, fontSize: 15, marginBottom: 14 }}>
+        {editMvtId ? '✏️ Modifier' : '➕ Nouveau'} — {type === 'entree' ? 'Entrée de stock' : type === 'sortie' ? 'Sortie de stock' : 'Ajustement'}
+      </div>
+
+      <div style={S.field}>
+        <label style={S.label}>Produit *</label>
+        <select value={mvtForm.produit_id} onChange={e => setMvtForm({ ...mvtForm, produit_id: e.target.value })} style={S.input}>
+          <option value="">Sélectionner...</option>
+          {produits.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.fournisseur})</option>)}
+        </select>
+      </div>
+
+      {type === 'sortie' ? (
+        <>
+          <div style={S.field}>
+            <label style={S.label}>Nombre de casiers {bpc > 1 ? `(${bpc} bouteilles/casier)` : ''}</label>
+            <input type="number" min="0" value={mvtForm.nb_casiers} onChange={e => setMvtForm({ ...mvtForm, nb_casiers: e.target.value })} style={S.input} placeholder="0" disabled={!mvtForm.produit_id} />
+          </div>
+          <div style={S.field}>
+            <label style={S.label}>Nombre de bouteilles (unités)</label>
+            <input type="number" min="0" value={mvtForm.nb_bouteilles} onChange={e => setMvtForm({ ...mvtForm, nb_bouteilles: e.target.value })} style={S.input} placeholder="0" disabled={!mvtForm.produit_id} />
+          </div>
+        </>
+      ) : (
+        <div style={S.field}>
+          <label style={S.label}>Quantité *</label>
+          <input type="number" value={mvtForm.quantite} onChange={e => setMvtForm({ ...mvtForm, quantite: e.target.value })} style={S.input} placeholder="0" />
+        </div>
+      )}
+
+      <div style={S.field}>
+        <label style={S.label}>Date</label>
+        <input type="date" value={mvtForm.date} onChange={e => setMvtForm({ ...mvtForm, date: e.target.value })} style={S.input} />
+      </div>
+
+      {type === 'entree' && (
+        <>
+          <div style={S.field}>
+            <label style={S.label}>Fournisseur</label>
+            <input value={mvtForm.fournisseur} onChange={e => setMvtForm({ ...mvtForm, fournisseur: e.target.value })} style={S.input} placeholder="SOLIBRA, BRASSIVOIRE..." />
+          </div>
+          <div style={S.field}>
+            <label style={S.label}>N° Bon de livraison</label>
+            <input value={mvtForm.bon_livraison} onChange={e => setMvtForm({ ...mvtForm, bon_livraison: e.target.value })} style={S.input} placeholder="BL-2026-001" />
+          </div>
+        </>
+      )}
+
+      {type === 'sortie' && (
+        <div style={S.field}>
+          <label style={S.label}>Destination (bar)</label>
+          <select value={mvtForm.point_de_vente_id} onChange={e => setMvtForm({ ...mvtForm, point_de_vente_id: e.target.value })} style={S.input}>
+            <option value="">Entrepôt central</option>
+            {points.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
           </select>
         </div>
+      )}
 
-        {type === 'sortie' ? (
-          <>
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">
-                Nombre de casiers {bpc > 1 ? `(${bpc} bouteilles/casier)` : ''}
-              </label>
-              <input type="number" min="0" value={mvtForm.nb_casiers} onChange={e => setMvtForm({ ...mvtForm, nb_casiers: e.target.value })} className="sdc-input" placeholder="0" disabled={!mvtForm.produit_id} />
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">Nombre de bouteilles (unités)</label>
-              <input type="number" min="0" value={mvtForm.nb_bouteilles} onChange={e => setMvtForm({ ...mvtForm, nb_bouteilles: e.target.value })} className="sdc-input" placeholder="0" disabled={!mvtForm.produit_id} />
-            </div>
-          </>
-        ) : (
-          <div><label className="text-xs text-slate-400 block mb-1">Quantité *</label><input type="number" value={mvtForm.quantite} onChange={e => setMvtForm({ ...mvtForm, quantite: e.target.value })} className="sdc-input" placeholder="0" /></div>
-        )}
-
-        <div><label className="text-xs text-slate-400 block mb-1">Date</label><input type="date" value={mvtForm.date} onChange={e => setMvtForm({ ...mvtForm, date: e.target.value })} className="sdc-input" /></div>
-        {type === 'entree' && <>
-          <div><label className="text-xs text-slate-400 block mb-1">Fournisseur</label><input value={mvtForm.fournisseur} onChange={e => setMvtForm({ ...mvtForm, fournisseur: e.target.value })} className="sdc-input" placeholder="SOLIBRA, BRASSIVOIRE..." /></div>
-          <div><label className="text-xs text-slate-400 block mb-1">N° Bon de livraison</label><input value={mvtForm.bon_livraison} onChange={e => setMvtForm({ ...mvtForm, bon_livraison: e.target.value })} className="sdc-input" placeholder="BL-2026-001" /></div>
-        </>}
-        {type === 'sortie' && (
-          <div><label className="text-xs text-slate-400 block mb-1">Destination (bar)</label>
-            <select value={mvtForm.point_de_vente_id} onChange={e => setMvtForm({ ...mvtForm, point_de_vente_id: e.target.value })} className="sdc-input">
-              <option value="">Entrepôt central</option>
-              {points.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
-            </select>
-          </div>
-        )}
-        <div className={type === 'ajustement' ? 'sm:col-span-2' : ''}><label className="text-xs text-slate-400 block mb-1">Observation</label><input value={mvtForm.notes} onChange={e => setMvtForm({ ...mvtForm, notes: e.target.value })} className="sdc-input" placeholder="Remarques..." /></div>
+      <div style={S.field}>
+        <label style={S.label}>Observation</label>
+        <input value={mvtForm.notes} onChange={e => setMvtForm({ ...mvtForm, notes: e.target.value })} style={S.input} placeholder="Remarques..." />
       </div>
 
       {/* Récapitulatif sortie */}
       {type === 'sortie' && produitSel && (casiers > 0 || bouteilles > 0) && (
-        <div className="mt-4 p-3 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-          <div className="text-xs text-slate-400 mb-1">Récapitulatif de la sortie</div>
-          <div className="text-sm text-white">
+        <div style={{ marginTop: 4, marginBottom: 14, padding: 12, borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+          <div style={{ color: '#94A3B8', fontSize: 11, marginBottom: 4 }}>Récapitulatif de la sortie</div>
+          <div style={{ color: '#F8FAFC', fontSize: 13 }}>
             {casiers > 0 && <span>{casiers} casier{casiers > 1 ? 's' : ''}{bpc > 1 ? ` (${casiers * bpc} bouteilles)` : ''}</span>}
             {casiers > 0 && bouteilles > 0 && <span> + </span>}
             {bouteilles > 0 && <span>{bouteilles} bouteille{bouteilles > 1 ? 's' : ''}</span>}
           </div>
-          <div className="text-sm font-bold mt-1" style={{ color: '#F87171' }}>
+          <div style={{ color: '#F87171', fontSize: 13, fontWeight: 700, marginTop: 4 }}>
             Total à retirer : {quantiteCalculee.toFixed(2)} {produitSel.unite}{quantiteCalculee !== 1 ? 's' : ''}
-            {bpc > 1 && <span className="text-slate-400 font-normal"> ({totalBouteilles} bouteilles au total)</span>}
+            {bpc > 1 && <span style={{ color: '#94A3B8', fontWeight: 400 }}> ({totalBouteilles} bouteilles au total)</span>}
           </div>
         </div>
       )}
 
-      <div className="flex gap-3 mt-4">
-        <button onClick={() => saveMvt(type)} disabled={saving || !mvtForm.produit_id || (type === 'sortie' ? (casiers === 0 && bouteilles === 0) : !mvtForm.quantite)} className="sdc-btn-primary flex items-center gap-2 disabled:opacity-50"><Save size={16} />{saving ? 'Enregistrement...' : editMvtId ? 'Modifier' : 'Enregistrer'}</button>
-        <button onClick={() => { setShowMvtForm(false); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} className="px-4 py-2 rounded-lg text-slate-400" style={{ background: '#1E293B' }}>Annuler</button>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          onClick={() => saveMvt(type)}
+          disabled={saving || !mvtForm.produit_id || (type === 'sortie' ? (casiers === 0 && bouteilles === 0) : !mvtForm.quantite)}
+          style={{ ...S.btn('linear-gradient(135deg,#F97316,#EA580C)'), opacity: (saving || !mvtForm.produit_id) ? 0.5 : 1 }}>
+          <Save size={16} />{saving ? 'Enregistrement...' : editMvtId ? 'Modifier' : 'Enregistrer'}
+        </button>
+        <button onClick={() => { setShowMvtForm(false); setEditMvtId(null); setMvtForm(EMPTY_MVT) }} style={S.btnGhost}>Annuler</button>
       </div>
     </div>
   )
@@ -395,53 +456,42 @@ function MvtTable({
   deleteMvt: (id: string) => void
 }) {
   return (
-    <div className="sdc-card overflow-hidden">
-      <div className="p-4 border-b flex justify-between items-center" style={{ borderColor: 'rgba(249,115,22,0.1)' }}>
-        <h3 className="font-bold text-white text-sm">Historique — {label} <span className="text-slate-500 font-normal">({rows.length})</span></h3>
+    <div style={S.card}>
+      <div style={{ color: '#F8FAFC', fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
+        Historique — {label} <span style={{ color: '#64748B', fontWeight: 400 }}>({rows.length})</span>
       </div>
-      {rows.length === 0 ? <div className="p-8 text-center text-slate-500">Aucun mouvement enregistré.</div> : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-              <th className="text-left p-3 text-slate-500 text-xs uppercase">Date</th>
-              <th className="text-left p-3 text-slate-500 text-xs uppercase">Produit</th>
-              <th className="text-right p-3 text-slate-500 text-xs uppercase">Quantité</th>
-              {type === 'sortie' && <th className="text-left p-3 text-slate-500 text-xs uppercase">Destination</th>}
-              {type === 'entree' && <th className="text-left p-3 text-slate-500 text-xs uppercase">Fournisseur / BL</th>}
-              <th className="text-left p-3 text-slate-500 text-xs uppercase">Observation</th>
-              <th className="text-center p-3 text-slate-500 text-xs uppercase">Actions</th>
-            </tr></thead>
-            <tbody>
-              {rows.map(m => (
-                <tr key={m.id} className="border-t hover:bg-white/[0.02]" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-                  <td className="p-3 text-white">{new Date(m.date).toLocaleDateString('fr-FR')}</td>
-                  <td className="p-3 text-slate-300 font-medium">{m.produits_boissons?.nom}</td>
-                  <td className="p-3 text-right font-bold" style={{ color }}>{m.quantite}</td>
-                  {type === 'sortie' && <td className="p-3 text-slate-400">{m.points_de_vente?.nom || 'Entrepôt'}</td>}
-                  {type === 'entree' && <td className="p-3 text-slate-400">{[m.fournisseur, m.bon_livraison].filter(Boolean).join(' / ') || '—'}</td>}
-                  <td className="p-3 text-slate-400">{m.notes || '—'}</td>
-                  <td className="p-3 text-center">
-                    <div className="flex justify-center gap-2">
-                      <button onClick={() => {
-                        const isSortie = type === 'sortie'
-                        const bpc = m.produits_boissons ? (produits.find(p => p.id === m.produit_id)?.bouteilles_par_casier || 1) : 1
-                        let nb_casiers = '', nb_bouteilles = ''
-                        if (isSortie) {
-                          nb_casiers = bpc > 1 ? String(Math.floor(m.quantite)) : '0'
-                          nb_bouteilles = bpc > 1 ? String(Math.round((m.quantite - Math.floor(m.quantite)) * bpc)) : String(m.quantite)
-                        }
-                        setMvtForm({ produit_id: m.produit_id, quantite: String(m.quantite), date: m.date, notes: m.notes || '', fournisseur: m.fournisseur || '', bon_livraison: m.bon_livraison || '', point_de_vente_id: m.point_de_vente_id || '', nb_casiers, nb_bouteilles })
-                        setEditMvtId(m.id); setShowMvtForm(true)
-                      }} className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400"><Pencil size={13} /></button>
-                      <button onClick={() => deleteMvt(m.id)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400"><Trash2 size={13} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {rows.length === 0 ? (
+        <div style={{ color: '#64748B', textAlign: 'center', padding: 24 }}>Aucun mouvement enregistré.</div>
+      ) : rows.map((m, i) => (
+        <div key={m.id} style={{ padding: '10px 0', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: '#F8FAFC', fontSize: 13, fontWeight: 600 }}>{m.produits_boissons?.nom}</div>
+            <div style={{ color: '#64748B', fontSize: 11, marginTop: 2 }}>
+              {new Date(m.date).toLocaleDateString('fr-FR')}
+              {type === 'sortie' && <span> · {m.points_de_vente?.nom || 'Entrepôt'}</span>}
+              {type === 'entree' && (m.fournisseur || m.bon_livraison) && <span> · {[m.fournisseur, m.bon_livraison].filter(Boolean).join(' / ')}</span>}
+              {m.notes && <span> · {m.notes}</span>}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ color, fontWeight: 700, fontSize: 14 }}>{m.quantite}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <button onClick={() => {
+              const isSortie = type === 'sortie'
+              const bpc = m.produits_boissons ? (produits.find(p => p.id === m.produit_id)?.bouteilles_par_casier || 1) : 1
+              let nb_casiers = '', nb_bouteilles = ''
+              if (isSortie) {
+                nb_casiers = bpc > 1 ? String(Math.floor(m.quantite)) : '0'
+                nb_bouteilles = bpc > 1 ? String(Math.round((m.quantite - Math.floor(m.quantite)) * bpc)) : String(m.quantite)
+              }
+              setMvtForm({ produit_id: m.produit_id, quantite: String(m.quantite), date: m.date, notes: m.notes || '', fournisseur: m.fournisseur || '', bon_livraison: m.bon_livraison || '', point_de_vente_id: m.point_de_vente_id || '', nb_casiers, nb_bouteilles })
+              setEditMvtId(m.id); setShowMvtForm(true)
+            }} style={S.btnIcon('#93C5FD')}><Pencil size={13} /></button>
+            <button onClick={() => deleteMvt(m.id)} style={S.btnIcon('#FCA5A5')}><Trash2 size={13} /></button>
+          </div>
         </div>
-      )}
+      ))}
     </div>
   )
 }
