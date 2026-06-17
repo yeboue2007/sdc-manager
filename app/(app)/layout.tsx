@@ -9,6 +9,14 @@ import { ShieldAlert, Loader2 } from 'lucide-react'
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [status, setStatus] = useState<'loading' | 'ok' | 'denied' | 'unauth'>('loading')
+  const [isDesktop, setIsDesktop] = useState(false)
+
+  useEffect(() => {
+    function checkSize() { setIsDesktop(window.innerWidth >= 1024) }
+    checkSize()
+    window.addEventListener('resize', checkSize)
+    return () => window.removeEventListener('resize', checkSize)
+  }, [])
 
   useEffect(() => {
     async function check() {
@@ -34,7 +42,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar />
-      <main style={{ flex: 1, overflowY: 'auto', marginLeft: 0 }} className="lg:ml-64 scrollbar-thin">
+      <main style={{ flex: 1, overflowY: 'auto', marginLeft: isDesktop ? 256 : 0, width: '100%' }} className="scrollbar-thin">
         {status === 'loading' && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
             <Loader2 size={28} style={{ color: '#F97316', animation: 'spin 1s linear infinite' }} />

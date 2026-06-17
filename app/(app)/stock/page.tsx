@@ -152,26 +152,35 @@ export default function StockPage() {
             <div style={{ ...S.card, textAlign: 'center', color: '#64748B', padding: 32 }}>Aucun produit. Ajoutez des produits dans l&apos;onglet &quot;Produits&quot;.</div>
           ) : stockActuel.map(s => {
             const bpc = s.bouteilles_par_casier || 1
-            const casiersEntiers = Math.floor(s.stock_theorique)
-            const bouteillesRestantes = bpc > 1 ? Math.round((s.stock_theorique - casiersEntiers) * bpc) : 0
-            const low = s.stock_theorique <= 2
+            // Arrondi à 2 décimales pour éliminer le bruit flottant (-0.0000001 etc.)
+            const stockArrondi = Math.round(s.stock_theorique * 100) / 100
+            // Stock négatif ou nul → on l'affiche tel quel, sans décomposition trompeuse
+            const casiersEntiers = stockArrondi >= 0 ? Math.floor(stockArrondi) : Math.ceil(stockArrondi)
+            const fraction = stockArrondi - casiersEntiers
+            const bouteillesRestantes = bpc > 1 ? Math.round(fraction * bpc) : 0
+            const low = stockArrondi <= 2
             return (
               <div key={s.produit_id} style={{ ...S.card, marginBottom: 10, border: low ? '1px solid rgba(239,68,68,0.4)' : S.card.border }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <div style={{ color: '#94A3B8', fontSize: 12, marginBottom: 6 }}>{s.nom}</div>
-                    <div style={{ color: s.stock_theorique <= 0 ? '#EF4444' : low ? '#FB923C' : '#F8FAFC', fontSize: 24, fontWeight: 900 }}>
-                      {s.stock_theorique} <span style={{ fontSize: 13, color: '#64748B', fontWeight: 400 }}>{s.unite}{s.stock_theorique !== 1 ? 's' : ''}</span>
+                    <div style={{ color: stockArrondi <= 0 ? '#EF4444' : low ? '#FB923C' : '#F8FAFC', fontSize: 24, fontWeight: 900 }}>
+                      {stockArrondi <= 0 ? 0 : stockArrondi} <span style={{ fontSize: 13, color: '#64748B', fontWeight: 400 }}>{s.unite}{stockArrondi !== 1 ? 's' : ''}</span>
                     </div>
-                    {bpc > 1 && (
+                    {bpc > 1 && stockArrondi > 0 && (
                       <div style={{ color: '#94A3B8', fontSize: 12, marginTop: 4 }}>
                         = {casiersEntiers} {s.unite}{casiersEntiers !== 1 ? 's' : ''} + {bouteillesRestantes} bout.
+                      </div>
+                    )}
+                    {stockArrondi < 0 && (
+                      <div style={{ color: '#F87171', fontSize: 11, marginTop: 4 }}>
+                        Déficit réel : {Math.abs(stockArrondi)} {s.unite}{Math.abs(stockArrondi) !== 1 ? 's' : ''} (sorties &gt; entrées enregistrées)
                       </div>
                     )}
                   </div>
                   {low && (
                     <span style={{ fontSize: 11, fontWeight: 700, color: '#F87171', background: 'rgba(239,68,68,0.12)', padding: '3px 8px', borderRadius: 20 }}>
-                      ⚠️ {s.stock_theorique <= 0 ? 'RUPTURE' : 'FAIBLE'}
+                      ⚠️ {stockArrondi <= 0 ? 'RUPTURE' : 'FAIBLE'}
                     </span>
                   )}
                 </div>
