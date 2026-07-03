@@ -619,20 +619,28 @@ function StatsTab({ personnel, S, fmt }: any) {
   const [stats, setStats] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Jours réels de l'événement depuis le début jusqu'à aujourd'hui
+  const eventStart = new Date('2026-05-30')
+  const today = new Date()
+  const joursEvenement = Math.max(1, Math.round((today.getTime() - eventStart.getTime()) / 864e5) + 1)
+
   useEffect(() => {
     async function load() {
       const { data } = await supabase.from('presences')
-        .select('employe_id, present, paye, salaire_jour_calcule, heures_sup')
+        .select('employe_id, present, paye, salaire_jour_calcule, heures_sup, date')
       const grouped: Record<string, any> = {}
       personnel.forEach((e: any) => {
-        grouped[e.id] = { ...e, joursPresents: 0, joursAbsents: 0, totalBrut: 0, totalPaye: 0, totalSup: 0 }
+        grouped[e.id] = { ...e, joursPresents: 0, joursAbsents: 0, joursEnregistres: 0, totalBrut: 0, totalPaye: 0, totalSup: 0, premierJour: null, dernierJour: null }
       })
       ;(data || []).forEach((p: any) => {
         if (!grouped[p.employe_id]) return
+        grouped[p.employe_id].joursEnregistres++
+        if (!grouped[p.employe_id].premierJour || p.date < grouped[p.employe_id].premierJour) grouped[p.employe_id].premierJour = p.date
+        if (!grouped[p.employe_id].dernierJour || p.date > grouped[p.employe_id].dernierJour) grouped[p.employe_id].dernierJour = p.date
         if (p.present) {
           grouped[p.employe_id].joursPresents++
-          grouped[p.employe_id].totalBrut += p.salaire_jour_calcule || 0
-          if (p.paye) grouped[p.employe_id].totalPaye += p.salaire_jour_calcule || 0
+          grouped[p.employe_id].totalBrut += parseFloat(p.salaire_jour_calcule) || 0
+          if (p.paye) grouped[p.employe_id].totalPaye += parseFloat(p.salaire_jour_calcule) || 0
           if (p.heures_sup > 0) grouped[p.employe_id].totalSup++
         } else {
           grouped[p.employe_id].joursAbsents++
@@ -651,7 +659,8 @@ function StatsTab({ personnel, S, fmt }: any) {
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+      {/* Résumé global */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
         <div style={{ flex: 1, background: '#1E293B', borderRadius: 10, padding: '12px 10px', textAlign: 'center' }}>
           <div style={{ color: '#F8FAFC', fontWeight: 900, fontSize: 16 }}>{fmt(totalMasse)}</div>
           <div style={{ color: '#64748B', fontSize: 10, marginTop: 2 }}>Masse salariale totale</div>
@@ -665,36 +674,72 @@ function StatsTab({ personnel, S, fmt }: any) {
           <div style={{ color: '#64748B', fontSize: 10, marginTop: 2 }}>Reste à payer</div>
         </div>
       </div>
+      <div style={{ color: '#64748B', fontSize: 11, textAlign: 'center', marginBottom: 14 }}>
+        Événement en cours · Jour {joursEvenement} / 51 (30 Mai → 19 Juil.)
+      </div>
 
-      {stats.map((e, i) => {
-        const tauxPresence = (e.joursPresents + e.joursAbsents) > 0
-          ? Math.round((e.joursPresents / (e.joursPresents + e.joursAbsents)) * 100) : 0
+      {stats.map((e) => {
+        // Taux de présence basé sur les jours depuis le premier enregistrement
+        // (un employé peut avoir rejoint après le début de l'événement)
+        const joursDepuisArrivee = e.premierJour
+          ? Math.max(1, Math.round((today.getTime() - new Date(e.premierJour).getTime()) / 864e5) + 1)
+          : joursEvenement
+        // Jours non enregistrés = jours sans aucune donnée (ni présent ni absent)
+        const joursNonEnregistres = Math.max(0, joursDepuisArrivee - e.joursEnregistres)
+        const tauxPresence = joursDepuisArrivee > 0
+          ? Math.round((e.joursPresents / joursDepuisArrivee) * 100) : 0
+
         return (
           <div key={e.id} style={{ ...S.card, marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
               <div>
                 <div style={{ color: '#F8FAFC', fontWeight: 700, fontSize: 14 }}>{e.nom_complet}</div>
-                <div style={{ color: '#64748B', fontSize: 11 }}>{ROLES[e.role] || e.role}</div>
+                <div style={{ color: '#64748B', fontSize: 11, marginTop: 2 }}>{ROLES[e.role] || e.role}</div>
+                {e.premierJour && (
+                  <div style={{ color: '#475569', fontSize: 10, marginTop: 2 }}>
+                    Du {new Date(e.premierJour).toLocaleDateString('fr-FR')} au {new Date(e.dernierJour).toLocaleDateString('fr-FR')} · {joursDepuisArrivee}j sur le terrain
+                  </div>
+                )}
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ color: '#F8FAFC', fontWeight: 900, fontSize: 14 }}>{fmt(e.totalBrut)}</div>
                 <div style={{ color: '#4ADE80', fontSize: 11 }}>Payé : {fmt(e.totalPaye)}</div>
+                <div style={{ color: '#F87171', fontSize: 11 }}>Reste : {fmt(e.totalBrut - e.totalPaye)}</div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              {[
-                { label: `${e.joursPresents}j présent(s)`, color: '#16A34A' },
-                { label: `${e.joursAbsents}j absent(s)`, color: '#EF4444' },
-                { label: `${e.totalSup}j heure sup`, color: '#8B5CF6' },
-              ].map(k => (
-                <span key={k.label} style={{ background: k.color + '15', color: k.color, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20 }}>{k.label}</span>
-              ))}
+
+            {/* Badges présence/absence/sup */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+              <span style={{ background: '#16A34A15', color: '#16A34A', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
+                ✅ {e.joursPresents}j présent{e.joursPresents > 1 ? 's' : ''}
+              </span>
+              <span style={{ background: '#EF444415', color: '#EF4444', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
+                ❌ {e.joursAbsents}j absent{e.joursAbsents > 1 ? 's' : ''}
+              </span>
+              {joursNonEnregistres > 0 && (
+                <span style={{ background: '#94A3B815', color: '#94A3B8', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
+                  ⬜ {joursNonEnregistres}j non enregistré{joursNonEnregistres > 1 ? 's' : ''}
+                </span>
+              )}
+              {e.totalSup > 0 && (
+                <span style={{ background: '#8B5CF615', color: '#8B5CF6', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
+                  ⏱ {e.totalSup}j heures sup
+                </span>
+              )}
             </div>
+
+            {/* Barre taux de présence */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ flex: 1, height: 4, borderRadius: 99, background: '#0F172A', overflow: 'hidden' }}>
-                <div style={{ height: 4, borderRadius: 99, width: tauxPresence + '%', background: tauxPresence > 80 ? '#16A34A' : tauxPresence > 50 ? '#F59E0B' : '#EF4444' }} />
+              <div style={{ flex: 1, height: 6, borderRadius: 99, background: '#0F172A', overflow: 'hidden', position: 'relative' }}>
+                {/* Présents */}
+                <div style={{ position: 'absolute', left: 0, height: 6, borderRadius: 99, width: tauxPresence + '%', background: tauxPresence > 80 ? '#16A34A' : tauxPresence > 50 ? '#F59E0B' : '#EF4444' }} />
               </div>
-              <span style={{ color: '#64748B', fontSize: 10, flexShrink: 0 }}>{tauxPresence}% présence</span>
+              <span style={{ color: tauxPresence > 80 ? '#4ADE80' : tauxPresence > 50 ? '#FCD34D' : '#F87171', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                {tauxPresence}%
+              </span>
+            </div>
+            <div style={{ color: '#475569', fontSize: 10, marginTop: 3, textAlign: 'right' }}>
+              {e.joursPresents}j / {joursDepuisArrivee}j enregistrés
             </div>
           </div>
         )
