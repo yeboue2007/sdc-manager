@@ -7,15 +7,16 @@ import { Plus, X, Save, Pencil, Trash2, Music, CheckCircle, Clock, XCircle, Aler
 function formatCFA(n: number) { return new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' CFA' }
 
 const CATEGORIES: Record<string, { label: string; color: string }> = {
-  cachet_artiste:      { label: '🎤 Cachets artistes',     color: '#F97316' },
-  communication:       { label: '📣 Communication',         color: '#F59E0B' },
-  logistique:          { label: '🚛 Logistique',            color: '#16A34A' },
-  location_materiel:   { label: '🎛️ Location matériel',    color: '#3B82F6' },
-  transport:           { label: '🚗 Transport',             color: '#8B5CF6' },
-  securite:            { label: '🛡️ Sécurité',             color: '#EC4899' },
-  electricite:         { label: '⚡ Électricité',           color: '#14B8A6' },
-  restauration_equipe: { label: '🍱 Restauration équipe',  color: '#EF4444' },
-  divers:              { label: '📦 Divers',                color: '#94A3B8' },
+  cachet_artiste:        { label: '🎤 Cachets artistes',       color: '#F97316' },
+  paiement_fournisseurs: { label: '🏭 Paiement fournisseurs',  color: '#06B6D4' },
+  communication:         { label: '📣 Communication',           color: '#F59E0B' },
+  logistique:            { label: '🚛 Logistique',              color: '#16A34A' },
+  location_materiel:     { label: '🎛️ Location matériel',      color: '#3B82F6' },
+  transport:             { label: '🚗 Transport',               color: '#8B5CF6' },
+  securite:              { label: '🛡️ Sécurité',               color: '#EC4899' },
+  electricite:           { label: '⚡ Électricité',             color: '#14B8A6' },
+  restauration_equipe:   { label: '🍱 Restauration équipe',    color: '#EF4444' },
+  divers:                { label: '📦 Divers',                  color: '#94A3B8' },
 }
 
 const STATUTS: Record<string, { label: string; color: string; icon: any }> = {
